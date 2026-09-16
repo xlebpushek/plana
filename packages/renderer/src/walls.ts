@@ -115,6 +115,23 @@ function perpendicular(a: [number, number], b: [number, number]): boolean {
   return Math.abs(a[0] * b[0] + a[1] * b[1]) < 0.35;
 }
 
+/** Infinite centerline intersection (not a wall endpoint). */
+function lineIntersect(
+  a1: [number, number],
+  a2: [number, number],
+  b1: [number, number],
+  b2: [number, number],
+): [number, number] | null {
+  const dax = a2[0] - a1[0];
+  const day = a2[1] - a1[1];
+  const dbx = b2[0] - b1[0];
+  const dby = b2[1] - b1[1];
+  const den = dax * dby - day * dbx;
+  if (Math.abs(den) < 1e-9) return null;
+  const t = ((b1[0] - a1[0]) * dby - (b1[1] - a1[1]) * dbx) / den;
+  return [a1[0] + t * dax, a1[1] + t * day];
+}
+
 type EndHit = { wall: WallWorldSegment; end: "a" | "b"; other: WallWorldSegment };
 
 function endHits(wall: WallWorldSegment, other: WallWorldSegment): EndHit[] {
@@ -158,7 +175,8 @@ export function computeRoomCornerVerticals(segments: WallWorldSegment[]): RoomCo
         const dA = awayDir(a, hitA.end);
         const dB = awayDir(b, hitB.end);
         if (!dA || !dB) continue;
-        const p = endpointOf(a, hitA.end);
+        const p = lineIntersect(a.a, a.b, b.a, b.b);
+        if (!p) continue;
         add(
           p[0] - dA[0] * (b.thickness / 2) - dB[0] * (a.thickness / 2),
           p[1] - dA[1] * (b.thickness / 2) - dB[1] * (a.thickness / 2),
@@ -178,7 +196,9 @@ export function computeRoomCornerVerticals(segments: WallWorldSegment[]): RoomCo
       if (!stemHit) continue;
       const dS = awayDir(stemHit.wall, stemHit.end);
       if (!dS) continue;
-      const p = endpointOf(stemHit.wall, stemHit.end);
+      const p =
+        lineIntersect(stemHit.wall.a, stemHit.wall.b, stemHit.other.a, stemHit.other.b) ??
+        endpointOf(stemHit.wall, stemHit.end);
       const tThrough = stemHit.other.thickness / 2;
       const tStem = stemHit.wall.thickness / 2;
       const fx = p[0] + dS[0] * tThrough;
