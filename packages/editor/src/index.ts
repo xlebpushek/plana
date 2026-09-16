@@ -1,3 +1,3 @@
-export { PlanaEditor } from "./PlanaEditor.js";
-export type { PlanaEditorProps } from "./PlanaEditor.js";
-export { createApartmentDocument } from "./sample.js";
+export { PlanaEditor } from "./PlanaEditor";
+export type { PlanaEditorProps } from "./PlanaEditor";
+export { createApartmentDocument } from "./sample";

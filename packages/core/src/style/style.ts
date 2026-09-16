@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { ColorSchema, rgba } from "./color.js";
+import { ColorSchema, rgba } from "./color";
 
 export const FaceStyleSchema = z.object({
   color: ColorSchema,

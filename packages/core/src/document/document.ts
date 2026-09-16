@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { Group, isGroup } from "../object/group.js";
-import { ObjectId, ObjectIdSchema, PlanaObject } from "../object/object.js";
-import { PlanaObjectSchema } from "../object/object.js";
-import { identityTransform } from "../transform.js";
+import { Group, isGroup } from "../object/group";
+import { ObjectId, ObjectIdSchema, PlanaObject } from "../object/object";
+import { PlanaObjectSchema } from "../object/object";
+import { identityTransform } from "../transform";
 
 export const PLANA_DOCUMENT_VERSION = 1;
 
@@ -41,18 +41,10 @@ export function createId(prefix = "obj"): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function getObject(document: PlanaDocument, id: ObjectId): PlanaObject | undefined {
-  return document.objects[id];
-}
-
 export function requireObject(document: PlanaDocument, id: ObjectId): PlanaObject {
   const object = document.objects[id];
   if (!object) throw new Error(`Object "${id}" not found`);
   return object;
-}
-
-export function hasObject(document: PlanaDocument, id: ObjectId): boolean {
-  return id in document.objects;
 }
 
 export function addObject(
@@ -134,15 +126,53 @@ export function updateObject(
   };
 }
 
-export function traverseObjects(
-  document: PlanaDocument,
-  visitor: (object: PlanaObject, depth: number) => void,
-  startId: ObjectId = document.root,
-  depth = 0,
-) {
-  const object = requireObject(document, startId);
-  visitor(object, depth);
-  for (const childId of object.children ?? []) {
-    traverseObjects(document, visitor, childId, depth + 1);
-  }
+export function createWallObject(options?: {
+  id?: string;
+  name?: string;
+  length?: number;
+  thickness?: number;
+  height?: number;
+  baseZ?: number;
+}): PlanaObject {
+  const length = options?.length ?? 2000;
+  const thickness = options?.thickness ?? 150;
+  const height = options?.height ?? 2700;
+  const baseZ = options?.baseZ ?? 0;
+  const id = options?.id ?? createId("wall");
+  return {
+    id,
+    type: "wall",
+    transform: identityTransform(),
+    geometry: {
+      type: "wall",
+      path: {
+        type: "polyline",
+        points: [
+          [0, 0, 0],
+          [length, 0, 0],
+        ],
+        closed: false,
+      },
+      thickness,
+      height: { start: height, end: height },
+      baseZ,
+    },
+    metadata: { name: options?.name ?? "Wall" },
+  };
+}
+
+export function createBoxObject(options?: {
+  id?: string;
+  name?: string;
+  size?: [number, number, number];
+  type?: string;
+}): PlanaObject {
+  const id = options?.id ?? createId("box");
+  return {
+    id,
+    type: options?.type ?? "object",
+    transform: { ...identityTransform(), position: [0, 0, 0] },
+    geometry: { type: "box", size: options?.size ?? [1000, 1000, 1000] },
+    metadata: { name: options?.name ?? id },
+  };
 }

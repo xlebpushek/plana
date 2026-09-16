@@ -2,20 +2,11 @@
   "name": "@plana/renderer",
   "version": "0.1.0",
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+    ".": "./src/index.ts"
   },
-  "files": ["dist"],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --external three --external @plana/core",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@plana/core": "workspace:*"
@@ -26,8 +17,6 @@
   "devDependencies": {
     "@types/three": "^0.180.0",
     "three": "^0.180.0",
-    "tsup": "^8.5.0",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "typescript": "^5.9.2"
   }
 }

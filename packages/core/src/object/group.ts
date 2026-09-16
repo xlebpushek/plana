@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { ObjectIdSchema, PlanaObjectSchema } from "./object.js";
+import { ObjectIdSchema, PlanaObjectSchema } from "./object";
 
 export const GroupSchema = PlanaObjectSchema.extend({
   type: z.literal("group"),

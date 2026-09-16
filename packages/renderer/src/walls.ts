@@ -1,4 +1,4 @@
-import type { PlanaDocument, PlanaObject, WallGeometry } from "@plana/core";
+import type { PlanaDocument, WallGeometry } from "@plana/core";
 
 export type WallWorldSegment = {
   id: string;
@@ -12,20 +12,7 @@ export type WallWorldSegment = {
 };
 
 function pathPoints(wall: WallGeometry): Array<[number, number, number]> {
-  if (wall.path.type === "polyline") return wall.path.points;
-  const points: Array<[number, number, number]> = [];
-  const { center, radius, startAngle, endAngle } = wall.path;
-  const segments = 24;
-  for (let i = 0; i <= segments; i += 1) {
-    const t = i / segments;
-    const angle = startAngle + (endAngle - startAngle) * t;
-    points.push([
-      center[0] + Math.cos(angle) * radius,
-      center[1] + Math.sin(angle) * radius,
-      center[2],
-    ]);
-  }
-  return points;
+  return wall.path.points;
 }
 
 /** Collect wall centerline endpoints in document XY mm (ignores parent transform for identity walls). */
@@ -324,8 +311,4 @@ export function computeWallEndCapHiding(segments: WallWorldSegment[]): Map<strin
     result.set(wall.id, { hideStartSeam, hideEndSeam });
   }
   return result;
-}
-
-export function isWallObject(object: PlanaObject): object is PlanaObject & { geometry: WallGeometry } {
-  return object.type === "wall" && object.geometry?.type === "wall";
 }

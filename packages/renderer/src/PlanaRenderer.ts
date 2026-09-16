@@ -9,7 +9,7 @@ import {
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import { WORLD_FROM_MM, buildRenderMesh, type WallMeshOptions } from "./mesh.js";
+import { WORLD_FROM_MM, buildRenderMesh, type WallMeshOptions } from "./mesh";
 import {
   clipEdgesInsideWalls,
   collectWallSegments,
@@ -17,7 +17,7 @@ import {
   computeWallEndCapHiding,
   type WallEndCaps,
   type WallWorldSegment,
-} from "./walls.js";
+} from "./walls";
 
 export type RendererSelection = {
   selectedIds: ObjectId[];

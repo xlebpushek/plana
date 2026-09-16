@@ -1,8 +1,7 @@
 import { z } from "zod";
 
-import { Vec3Schema } from "../transform.js";
-import { PolygonGeometrySchema, PolylineGeometrySchema } from "./curves.js";
-import { ArcGeometrySchema } from "./primitives.js";
+import { Vec3Schema } from "../transform";
+import { PolylineGeometrySchema } from "./curves";
 
 export const BoxGeometrySchema = z.object({
   type: z.literal("box"),
@@ -14,13 +13,6 @@ export const CylinderGeometrySchema = z.object({
   radius: z.number().positive(),
   height: z.number().positive(),
   radialSegments: z.number().int().min(3).default(16),
-});
-
-export const ExtrusionGeometrySchema = z.object({
-  type: z.literal("extrusion"),
-  profile: PolygonGeometrySchema,
-  height: z.number().positive(),
-  direction: Vec3Schema,
 });
 
 /** Opening punched through a wall (offsets in mm along the path from start). */
@@ -35,7 +27,7 @@ export const WallCutoutSchema = z.object({
 
 export const WallGeometrySchema = z.object({
   type: z.literal("wall"),
-  path: z.union([PolylineGeometrySchema, ArcGeometrySchema]),
+        path: PolylineGeometrySchema,
   thickness: z.number().positive(),
   height: z.object({
     start: z.number().positive(),
@@ -89,7 +81,6 @@ export const LeafGeometrySchema = z.object({
 
 export type BoxGeometry = z.infer<typeof BoxGeometrySchema>;
 export type CylinderGeometry = z.infer<typeof CylinderGeometrySchema>;
-export type ExtrusionGeometry = z.infer<typeof ExtrusionGeometrySchema>;
 export type WallCutout = z.infer<typeof WallCutoutSchema>;
 export type WallGeometry = z.infer<typeof WallGeometrySchema>;
 export type FloorGeometry = z.infer<typeof FloorGeometrySchema>;

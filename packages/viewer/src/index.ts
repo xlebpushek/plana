@@ -1,2 +1,2 @@
-export { PlanaViewer } from "./PlanaViewer.js";
-export type { PlanaViewerProps } from "./PlanaViewer.js";
+export { PlanaViewer } from "./PlanaViewer";
+export type { PlanaViewerProps } from "./PlanaViewer";

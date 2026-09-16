@@ -29,19 +29,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build packages + static demo
-        run: |
-          pnpm --filter @plana/core build
-          pnpm --filter @plana/renderer build
-          pnpm --filter @plana/viewer build
-          pnpm --filter @plana/editor build
-          pnpm --filter @plana/editor preview:build
+      - name: Build static app
+        run: pnpm --filter web build
+        env:
+          GITHUB_PAGES: "1"
 
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: packages/editor/dev-dist
+          publish_dir: apps/web/out
           force_orphan: true
           enable_jekyll: false
           commit_message: "deploy: ${{ github.sha }}"

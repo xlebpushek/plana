@@ -155,25 +155,8 @@ function pushBox(
   }
 }
 
-function sampleArc(
-  wall: Extract<WallGeometry["path"], { type: "arc" }>,
-  segments = 24,
-): Vec3[] {
-  const points: Vec3[] = [];
-  for (let i = 0; i <= segments; i += 1) {
-    const t = i / segments;
-    const angle = wall.startAngle + (wall.endAngle - wall.startAngle) * t;
-    points.push([
-      wall.center[0] + Math.cos(angle) * wall.radius,
-      wall.center[1] + Math.sin(angle) * wall.radius,
-      wall.center[2],
-    ]);
-  }
-  return points;
-}
-
 function pathPointsOf(wall: WallGeometry): Vec3[] {
-  return wall.path.type === "polyline" ? wall.path.points : sampleArc(wall.path);
+  return wall.path.points;
 }
 
 /**
@@ -385,51 +368,6 @@ function normalize3(v: Vec3): Vec3 {
   const n = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / n, v[1] / n, v[2] / n];
 }
-
-function basisFromDir(dir: Vec3): { u: Vec3; v: Vec3; w: Vec3 } {
-  const w = normalize3(dir);
-  const helper: Vec3 = Math.abs(w[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-  const u = normalize3(cross(helper, w));
-  const v = cross(w, u);
-  return { u, v, w };
-}
-
-function projectToUv(p: Vec3, origin: Vec3, u: Vec3, v: Vec3): Vec2 {
-  const d: Vec3 = [p[0] - origin[0], p[1] - origin[1], p[2] - origin[2]];
-  return [d[0] * u[0] + d[1] * u[1] + d[2] * u[2], d[0] * v[0] + d[1] * v[1] + d[2] * v[2]];
-}
-
-export function buildExtrusionMesh(geometry: {
-  type: "extrusion";
-  profile: { type: "polygon"; outer: Vec3[]; holes?: Vec3[][] };
-  height: number;
-  direction: Vec3;
-}): RenderMesh {
-  const buf = emptyBuffers();
-  const outer3 = geometry.profile.outer;
-  if (outer3.length < 3) return toMesh(buf);
-  const { u, v, w } = basisFromDir(geometry.direction);
-  const origin = outer3[0];
-  const uvToWorld: UvToWorld = (uu, vv, ww) => [
-    (origin[0] + u[0] * uu + v[0] * vv + w[0] * ww) * MM,
-    (origin[1] + u[1] * uu + v[1] * vv + w[1] * ww) * MM,
-    (origin[2] + u[2] * uu + v[2] * vv + w[2] * ww) * MM,
-  ];
-  const outline = outer3.map((p) => projectToUv(p, origin, u, v));
-  const holes = (geometry.profile.holes ?? []).map((h) => h.map((p) => projectToUv(p, origin, u, v)));
-  const { verts, indices } = triangulatePolygonWithHoles(outline, holes);
-  if (indices.length >= 3) pushUvCaps(buf, verts, indices, 0, geometry.height, uvToWorld);
-  const dummyLen = 1;
-  const zMin = Math.min(...outline.map((p) => p[1]));
-  const zMax = Math.max(...outline.map((p) => p[1]));
-  pushExtrudedRing(buf, outline, 0, geometry.height, uvToWorld, false, dummyLen, zMin, zMax);
-  for (const hole of holes) {
-    pushExtrudedRing(buf, hole, 0, geometry.height, uvToWorld, true, dummyLen, zMin, zMax);
-  }
-  return toMesh(buf);
-}
-
-// —— Floor ——
 
 function ringArea(ring: Vec2[]): number {
   let a = 0;
@@ -1052,7 +990,6 @@ export function buildRenderMesh(
 
   if (geometry.type === "wall") return buildWallMesh(geometry, options);
   if (geometry.type === "floor") return buildFloorMesh(geometry);
-  if (geometry.type === "extrusion") return buildExtrusionMesh(geometry);
   if (geometry.type === "lathe") return buildLatheMesh(geometry);
   if (geometry.type === "tube") return buildTubeMesh(geometry);
   if (geometry.type === "leaf") return buildLeafMesh(geometry);

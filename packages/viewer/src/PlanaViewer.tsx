@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef } from "react";
 
 import type { ObjectId, PlanaDocument } from "@plana/core";

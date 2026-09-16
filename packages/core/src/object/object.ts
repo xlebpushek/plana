@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { GeometrySchema } from "../geometry/index.js";
-import { ObjectStyleSchema } from "../style/index.js";
-import { TransformSchema } from "../transform.js";
+import { GeometrySchema } from "../geometry";
+import { ObjectStyleSchema } from "../style";
+import { TransformSchema } from "../transform";
 
 export const ObjectIdSchema = z.string().min(1);
 export const ObjectTypeSchema = z.string().min(1);
