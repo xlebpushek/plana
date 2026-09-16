@@ -23,6 +23,16 @@ export const ExtrusionGeometrySchema = z.object({
   direction: Vec3Schema,
 });
 
+/** Opening punched through a wall (offsets in mm along the path from start). */
+export const WallCutoutSchema = z.object({
+  offset: z.number().finite(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  /** Height of opening bottom above wall baseZ (mm). */
+  sill: z.number().nonnegative().default(0),
+  kind: z.enum(["door", "window", "opening"]).optional(),
+});
+
 export const WallGeometrySchema = z.object({
   type: z.literal("wall"),
   path: z.union([PolylineGeometrySchema, ArcGeometrySchema]),
@@ -32,9 +42,21 @@ export const WallGeometrySchema = z.object({
     end: z.number().positive(),
   }),
   baseZ: z.number().finite(),
+  cutouts: z.array(WallCutoutSchema).optional(),
+});
+
+/** Horizontal slab with optional holes (mm, XY outline). */
+export const FloorGeometrySchema = z.object({
+  type: z.literal("floor"),
+  outline: z.array(z.tuple([z.number(), z.number()])).min(3),
+  holes: z.array(z.array(z.tuple([z.number(), z.number()])).min(3)).optional(),
+  thickness: z.number().positive(),
+  baseZ: z.number().finite().default(0),
 });
 
 export type BoxGeometry = z.infer<typeof BoxGeometrySchema>;
 export type CylinderGeometry = z.infer<typeof CylinderGeometrySchema>;
 export type ExtrusionGeometry = z.infer<typeof ExtrusionGeometrySchema>;
+export type WallCutout = z.infer<typeof WallCutoutSchema>;
 export type WallGeometry = z.infer<typeof WallGeometrySchema>;
+export type FloorGeometry = z.infer<typeof FloorGeometrySchema>;
