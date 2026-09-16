@@ -51,7 +51,7 @@ export class PlanaRenderer {
   constructor(canvas: HTMLCanvasElement) {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
     this.camera.up.set(0, 0, 1);
-    this.camera.position.set(8, -8, 6);
+    this.camera.position.set(8, -7, 6);
 
     this.webgl = new THREE.WebGLRenderer({
       canvas,
@@ -75,7 +75,7 @@ export class PlanaRenderer {
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.target.set(0, 0, 1);
+    this.controls.target.set(3.2, 3.0, 1.0);
     this.controls.maxPolarAngle = Math.PI * 0.495;
 
     canvas.addEventListener("pointerdown", this.handlePointerDown);

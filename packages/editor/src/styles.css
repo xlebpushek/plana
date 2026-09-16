@@ -84,12 +84,23 @@
   display: none;
 }
 
-.plana-sep {
-  width: 1px;
-  height: 18px;
-  background: var(--border);
+.plana-file-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
   flex: 0 0 auto;
 }
+
+.plana-file-btn:hover {
+  background: var(--accent);
+}
+
 
 .plana-icon-btn,
 .plana-toolbar button,
