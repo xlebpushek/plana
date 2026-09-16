@@ -61,28 +61,40 @@ describe("buildWallMesh", () => {
     expect(mesh.indices!.length).toBe(4 * 36);
   });
 
-  it("hides start/end seams in corners mode when requested", () => {
+  it("passive corners mode keeps only room-corner verticals", () => {
     const plain = buildWallMesh(wallBase(), { mode: "corners" });
-    const hidden = buildWallMesh(wallBase(), {
-      mode: "corners",
+    const full = buildWallMesh(wallBase(), { mode: "full" });
+    // Plain wall: 4 corner verticals × 6 floats
+    expect(plain.edges!.length).toBe(4 * 6);
+    expect(full.edges!.length).toBeGreaterThan(plain.edges!.length);
+  });
+
+  it("full mode can hide junction top/bottom seams", () => {
+    const full = buildWallMesh(wallBase(), {
+      mode: "full",
+      hideStartSeam: false,
+      hideEndSeam: false,
+    });
+    const fullHidden = buildWallMesh(wallBase(), {
+      mode: "full",
       hideStartSeam: true,
       hideEndSeam: true,
     });
-    expect(hidden.edges!.length).toBeLessThan(plain.edges!.length);
+    expect(fullHidden.edges!.length).toBeLessThan(full.edges!.length);
   });
 
-  it("keeps seams in full mode even when hide* is set", () => {
+  it("selected full mode has more edges than passive corners", () => {
     const full = buildWallMesh(wallBase(), {
       mode: "full",
       hideStartSeam: true,
       hideEndSeam: true,
     });
-    const cornersHidden = buildWallMesh(wallBase(), {
+    const corners = buildWallMesh(wallBase(), {
       mode: "corners",
       hideStartSeam: true,
       hideEndSeam: true,
     });
-    expect(full.edges!.length).toBeGreaterThan(cornersHidden.edges!.length);
+    expect(full.edges!.length).toBeGreaterThan(corners.edges!.length);
   });
 });
 

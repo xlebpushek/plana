@@ -84,5 +84,13 @@ export function geometryBounds(geometry: Geometry): AABB {
     return expandAABB(bounds, geometry.end);
   }
 
+  if (geometry.type === "floor") {
+    for (const [x, y] of geometry.outline) {
+      bounds = expandAABB(bounds, [x, y, geometry.baseZ]);
+      bounds = expandAABB(bounds, [x, y, geometry.baseZ + geometry.thickness]);
+    }
+    return bounds;
+  }
+
   return bounds;
 }

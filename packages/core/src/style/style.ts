@@ -34,57 +34,80 @@ export type EdgeStyle = z.infer<typeof EdgeStyleSchema>;
 export type HatchStyle = z.infer<typeof HatchStyleSchema>;
 export type ObjectStyle = z.infer<typeof ObjectStyleSchema>;
 
+const WHITE = rgba(245, 245, 245, 1);
+const WHITE_DIM = rgba(228, 228, 231, 1);
+
 export const defaultFaceStyle = (): FaceStyle => ({
-  color: rgba(161, 161, 170, 1),
-  opacity: 0.08,
+  color: WHITE,
+  opacity: 0.06,
   visible: true,
 });
 
 export const defaultEdgeStyle = (): EdgeStyle => ({
-  color: rgba(212, 212, 216, 1),
+  color: WHITE_DIM,
   width: 1,
   opacity: 1,
   visible: true,
 });
 
-/** CAD defaults: walls = edges only; furniture muted; openings cooler. */
+/**
+ * Built-in type styles. Ready rules: wall/floor CAD edges, door/opening warm,
+ * window cool. Other named types are light stubs (mostly white).
+ */
 export function defaultStyleForType(type: string): ObjectStyle {
   switch (type) {
     case "wall":
       return {
-        face: { color: rgba(96, 165, 250, 1), opacity: 0, visible: true },
-        edge: { color: rgba(96, 165, 250, 1), width: 1.4, opacity: 1, visible: true },
+        face: { color: WHITE, opacity: 0, visible: true },
+        edge: { color: WHITE, width: 1.25, opacity: 0.95, visible: true },
       };
     case "floor":
       return {
-        face: { color: rgba(63, 63, 70, 1), opacity: 0.06, visible: true },
-        edge: { color: rgba(82, 82, 91, 1), width: 1, opacity: 0.55, visible: true },
-      };
-    case "furniture":
-    case "table":
-    case "sofa":
-    case "bed":
-    case "chair":
-      return {
-        face: { color: rgba(212, 212, 216, 1), opacity: 0.1, visible: true },
-        edge: { color: rgba(228, 228, 231, 1), width: 1.15, opacity: 0.95, visible: true },
+        face: { color: WHITE, opacity: 0.05, visible: true },
+        edge: { color: WHITE_DIM, width: 1, opacity: 0.55, visible: true },
       };
     case "door":
+    case "opening":
       return {
-        face: { color: rgba(251, 191, 36, 1), opacity: 0.08, visible: true },
+        face: { color: rgba(251, 191, 36, 1), opacity: 0.1, visible: true },
         edge: { color: rgba(252, 211, 77, 1), width: 1.2, opacity: 1, visible: true },
       };
     case "window":
       return {
-        face: { color: rgba(125, 211, 252, 1), opacity: 0.06, visible: true },
+        face: { color: rgba(125, 211, 252, 1), opacity: 0.08, visible: true },
         edge: { color: rgba(56, 189, 248, 1), width: 1.15, opacity: 1, visible: true },
       };
-    case "smart-switch":
+    case "sofa":
+    case "bed":
+    case "chair":
+    case "table":
+    case "shelving":
+    case "furniture":
+    case "cabinet":
+    case "desk":
+    case "wardrobe":
+      return {
+        face: { color: WHITE, opacity: 0.08, visible: true },
+        edge: { color: WHITE_DIM, width: 1.1, opacity: 0.9, visible: true },
+      };
+    case "plant":
+    case "flower":
+    case "tree":
+      return {
+        face: { color: rgba(134, 239, 172, 1), opacity: 0.14, visible: true },
+        edge: { color: rgba(74, 222, 128, 1), width: 1, opacity: 0.85, visible: true },
+      };
+    case "clock":
+    case "lamp":
+    case "vase":
+    case "decor":
+    case "appliance":
     case "socket":
     case "light":
+    case "smart-switch":
       return {
-        face: { color: rgba(251, 146, 60, 1), opacity: 0.12, visible: true },
-        edge: { color: rgba(253, 186, 116, 1), width: 1.2, opacity: 1, visible: true },
+        face: { color: WHITE, opacity: 0.1, visible: true },
+        edge: { color: WHITE_DIM, width: 1, opacity: 0.9, visible: true },
       };
     default:
       return {

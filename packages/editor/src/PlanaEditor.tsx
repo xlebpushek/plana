@@ -173,7 +173,7 @@ export function PlanaEditor({
       return;
     }
     if (kind === "wall") {
-      const wall = createWallObject({ name: "Стена" });
+      const wall = createWallObject({ name: "Wall" });
       commitDocument(addObject(document, wall));
       setSelectedIds([wall.id]);
       return;

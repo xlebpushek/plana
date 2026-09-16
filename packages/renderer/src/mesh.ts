@@ -15,9 +15,8 @@ export type WallMeshOptions = {
   /** Hide top/bottom end-cap seams at path end. */
   hideEndSeam?: boolean;
   /**
-   * `corners` (default, passive): longitudinal + corner verticals + cutout reveals;
-   * junction seams omitted when hide* is set.
-   * `full` (selected): all edges including end seams.
+   * `corners` (default, passive): only room-corner verticals.
+   * `full` (selected): all edges; junction top/bottom seams still honor hide*.
    */
   mode?: "corners" | "full";
 };
@@ -50,11 +49,15 @@ function emptyBuffers(): MeshBuffers {
 }
 
 function toMesh(buf: MeshBuffers, options: WallMeshOptions = {}): RenderMesh {
-  const mode = options.mode ?? "corners";
+  const mode = options.mode ?? "full";
   const filtered: number[] = [];
   for (let i = 0; i < buf.kinds.length; i += 1) {
     const kind = buf.kinds[i];
     if (mode === "corners") {
+      // Passive walls: only room-corner verticals (inner/outer intersections).
+      if (kind !== "corner") continue;
+    } else {
+      // Full / non-wall meshes: drop only coplanar junction top/bottom seams.
       if (kind === "start-seam" && options.hideStartSeam) continue;
       if (kind === "end-seam" && options.hideEndSeam) continue;
     }
@@ -410,9 +413,10 @@ function pushWallPrismAlong(
  * runs composed into the same buffers (not separate PlanaObjects).
  */
 export function buildWallMesh(wall: WallGeometry, options: WallMeshOptions = {}): RenderMesh {
+  const opts: WallMeshOptions = { mode: "corners", ...options };
   const buf = emptyBuffers();
   const pathPoints = pathPointsOf(wall);
-  if (pathPoints.length < 2) return toMesh(buf, options);
+  if (pathPoints.length < 2) return toMesh(buf, opts);
 
   const segLens: number[] = [];
   let totalLen = 0;
@@ -423,7 +427,7 @@ export function buildWallMesh(wall: WallGeometry, options: WallMeshOptions = {})
     segLens.push(len);
     totalLen += len;
   }
-  if (totalLen < 1e-6) return toMesh(buf, options);
+  if (totalLen < 1e-6) return toMesh(buf, opts);
 
   // With cutouts: one height (max of start/end). Without: per-segment lerp.
   const solids: SolidRegion[] = wall.cutouts?.length
@@ -482,7 +486,7 @@ export function buildWallMesh(wall: WallGeometry, options: WallMeshOptions = {})
     segStart += len;
   }
 
-  return toMesh(buf, options);
+  return toMesh(buf, opts);
 }
 
 // —— Floor ——

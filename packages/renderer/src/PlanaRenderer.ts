@@ -32,7 +32,27 @@ function colorFromRgba(color: { r: number; g: number; b: number }) {
 function geometryKey(object: PlanaObject, wallOpts?: WallMeshOptions): string {
   const base = object.geometry ? JSON.stringify(object.geometry) : "";
   if (!wallOpts) return base;
-  return `${base}|s${wallOpts.hideStartSeam ? 1 : 0}|e${wallOpts.hideEndSeam ? 1 : 0}`;
+  return `${base}|m${wallOpts.mode ?? "corners"}|s${wallOpts.hideStartSeam ? 1 : 0}|e${wallOpts.hideEndSeam ? 1 : 0}`;
+}
+
+function hitPriority(type: string): number {
+  if (type === "door" || type === "window" || type === "opening") return 0;
+  if (
+    type === "plant" ||
+    type === "flower" ||
+    type === "tree" ||
+    type === "sofa" ||
+    type === "table" ||
+    type === "chair" ||
+    type === "bed" ||
+    type === "shelving" ||
+    type === "furniture" ||
+    type === "decor"
+  ) {
+    return 1;
+  }
+  if (type === "wall" || type === "floor") return 3;
+  return 2;
 }
 
 export class PlanaRenderer {
@@ -51,7 +71,6 @@ export class PlanaRenderer {
   private onSelect?: (id?: ObjectId) => void;
   private document: PlanaDocument | null = null;
   private wallCaps = new Map<string, WallEndCaps>();
-
   private pointerDown: { x: number; y: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -71,7 +90,10 @@ export class PlanaRenderer {
 
     this.scene.background = new THREE.Color("#09090b");
     this.scene.fog = new THREE.Fog("#09090b", 20, 50);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const key = new THREE.DirectionalLight(0xffffff, 0.35);
+    key.position.set(4, -6, 10);
+    this.scene.add(key);
     this.scene.add(this.root);
 
     const grid = new THREE.GridHelper(20, 40, "#27272a", "#18181b");
@@ -83,6 +105,9 @@ export class PlanaRenderer {
     this.controls.dampingFactor = 0.08;
     this.controls.target.set(3.2, 3.0, 1.0);
     this.controls.maxPolarAngle = Math.PI * 0.495;
+
+    // Prefer face hits; threshold helps thin geometry.
+    this.raycaster.params.Line = { threshold: 0.02 };
 
     canvas.addEventListener("pointerdown", this.handlePointerDown);
     canvas.addEventListener("pointerup", this.handlePointerUp);
@@ -97,12 +122,12 @@ export class PlanaRenderer {
     const prev = this.selection.selectedIds;
     this.selection = selection;
     if (!this.document) return;
-    // Wall edge topology depends on selection (junction caps vs full bounds).
     const touched = new Set([...prev, ...selection.selectedIds]);
     for (const id of touched) {
       const object = this.document.objects[id];
       const runtime = this.runtimes.get(id);
-      if (!object || !runtime || object.type !== "wall") continue;
+      if (!object || !runtime) continue;
+      if (object.type !== "wall" && object.geometry?.type !== "wall") continue;
       this.disposeRuntimeMeshes(runtime);
       this.rebuildMeshes(runtime, object);
       runtime.geometryKey = geometryKey(object, this.wallMeshOptions(object.id));
@@ -157,13 +182,16 @@ export class PlanaRenderer {
   }
 
   private wallMeshOptions(id: ObjectId): WallMeshOptions | undefined {
-    if (!this.document?.objects[id] || this.document.objects[id].type !== "wall") return undefined;
+    const object = this.document?.objects[id];
+    if (!object || object.geometry?.type !== "wall") return undefined;
     const selected = this.selection.selectedIds.includes(id);
-    // Selected wall: full bounds including top/bottom end seams.
-    if (selected) return { hideStartSeam: false, hideEndSeam: false };
+    if (selected) return { mode: "full", hideStartSeam: false, hideEndSeam: false };
     const caps = this.wallCaps.get(id);
-    if (!caps) return { hideStartSeam: false, hideEndSeam: false };
-    return { hideStartSeam: caps.hideStartSeam, hideEndSeam: caps.hideEndSeam };
+    return {
+      mode: "corners",
+      hideStartSeam: caps?.hideStartSeam ?? false,
+      hideEndSeam: caps?.hideEndSeam ?? false,
+    };
   }
 
   private createRuntime(object: PlanaObject): ObjectRuntime {
@@ -189,27 +217,31 @@ export class PlanaRenderer {
     if (mesh.normals) geometry.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
     if (mesh.indices) geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
     geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
 
     const face = new THREE.Mesh(
       geometry,
       new THREE.MeshBasicMaterial({
         transparent: true,
         depthWrite: false,
+        depthTest: true,
         side: THREE.DoubleSide,
       }),
     );
     face.userData.planaId = object.id;
+    face.userData.planaPick = true;
     runtime.group.add(face);
     runtime.face = face;
 
-    if (mesh.edges) {
+    if (mesh.edges && mesh.edges.length > 0) {
       const edgeGeo = new THREE.BufferGeometry();
       edgeGeo.setAttribute("position", new THREE.BufferAttribute(mesh.edges, 3));
       const edge = new THREE.LineSegments(
         edgeGeo,
-        new THREE.LineBasicMaterial({ transparent: true }),
+        new THREE.LineBasicMaterial({ transparent: true, depthTest: true }),
       );
       edge.userData.planaId = object.id;
+      edge.raycast = () => undefined;
       runtime.group.add(edge);
       runtime.edge = edge;
     }
@@ -247,27 +279,27 @@ export class PlanaRenderer {
       mat.opacity = selected && opacity > 0 ? Math.min(1, opacity + 0.12) : opacity;
       mat.transparent = true;
       mat.depthWrite = false;
-      mat.colorWrite = opacity > 0.001;
+      // Keep a tiny alpha for raycast stability on "invisible" CAD walls.
+      mat.colorWrite = opacity > 0.001 || object.type === "wall";
+      if (object.type === "wall" && opacity < 0.001) mat.opacity = 0.001;
       runtime.face.visible = true;
-      runtime.face.raycast =
-        opacity > 0.001 || object.type === "wall"
-          ? THREE.Mesh.prototype.raycast
-          : () => undefined;
+      runtime.face.raycast = THREE.Mesh.prototype.raycast;
     }
 
     if (runtime.edge && style.edge) {
       const mat = runtime.edge.material as THREE.LineBasicMaterial;
       if (selected) {
-        const accent = selectionEdgeColor(style.edge.color, this.nearbyEdgeColors(document, object.id));
+        const accent = selectionEdgeColor(
+          style.edge.color,
+          this.nearbyEdgeColors(document, object.id),
+        );
         mat.color = colorFromRgba(accent);
-        mat.linewidth = Math.max(style.edge.width, 1.6);
       } else {
         mat.color = colorFromRgba(style.edge.color);
       }
       mat.opacity = style.edge.opacity;
       mat.visible = style.edge.visible;
       runtime.edge.visible = style.edge.visible;
-      // Selected walls draw on top so overlapping bounds stay readable.
       runtime.edge.renderOrder = selected ? 10 : 0;
     }
   }
@@ -308,18 +340,39 @@ export class PlanaRenderer {
     const dy = event.clientY - this.pointerDown.y;
     this.pointerDown = null;
     if (dx * dx + dy * dy > 25) return;
+    if (!this.document) return;
 
     const rect = this.webgl.domElement.getBoundingClientRect();
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const hits = this.raycaster.intersectObjects(
-      [...this.runtimes.values()].map((r) => r.group),
-      true,
-    );
-    let node: THREE.Object3D | null = hits[0]?.object ?? null;
-    while (node && !node.userData.planaId) node = node.parent;
-    this.onSelect(node?.userData.planaId);
+
+    const faces: THREE.Object3D[] = [];
+    for (const runtime of this.runtimes.values()) {
+      if (runtime.face) faces.push(runtime.face);
+    }
+    const hits = this.raycaster.intersectObjects(faces, false);
+    if (!hits.length) {
+      this.onSelect(undefined);
+      return;
+    }
+
+    const typeOf = (hit: THREE.Intersection) =>
+      this.document?.objects[String(hit.object.userData.planaId ?? "")]?.type ?? "";
+
+    // Prefer non-floor hits: large slabs steal clicks under a downward camera.
+    const nonFloor = hits.filter((h) => typeOf(h) !== "floor");
+    const pool = nonFloor.length > 0 ? nonFloor : hits;
+
+    pool.sort((a, b) => {
+      const distDelta = a.distance - b.distance;
+      // Within ~8 cm prefer openings/furniture over walls (coplanar overlaps).
+      if (Math.abs(distDelta) > 0.08) return distDelta;
+      return hitPriority(typeOf(a)) - hitPriority(typeOf(b));
+    });
+
+    const id = pool[0]?.object.userData.planaId as ObjectId | undefined;
+    this.onSelect(id);
   };
 
   private loop = () => {
