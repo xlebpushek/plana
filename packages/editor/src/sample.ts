@@ -1010,10 +1010,11 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
     );
 
     if (depth >= 2) {
-      sprays.push({ path, count: 6, spread: 46, size: 15 });
+      sprays.push({ path, count: 48, spread: 52, size: 15 });
       return;
     }
-    if (depth > 0) sprays.push({ path, count: 4, spread: 40, size: 16 });
+    if (depth > 0) sprays.push({ path, count: 32, spread: 46, size: 16 });
+    else sprays.push({ path, count: 16, spread: 38, size: 16 });
     const kids = depth === 0 ? 3 : 2;
     for (let i = 0; i < kids; i += 1) {
       grow(tip, angle + rnd(-0.9, 0.9), reach * rnd(0.45, 0.72), radius * 0.56, depth + 1);
@@ -1059,7 +1060,7 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
           width,
           thickness: 0.5,
           cup: 0.22,
-          segments: 6,
+          segments: 4,
         },
         metadata: { name: `Leaf ${leaf}` },
         style: leafStyles[leaf % leafStyles.length],
@@ -1069,7 +1070,7 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
   };
 
   /** Leaflets scattered around the outer part of a branch, blades near-flat. */
-  const spray = (path: P3[], count: number, spread: number, size: number, t0 = 0.35) => {
+  const spray = (path: P3[], count: number, spread: number, size: number, t0 = 0.12) => {
     for (let i = 0; i < count; i += 1) {
       const t = t0 + (1 - t0) * rand();
       const p = pointOnPolyline(path, t);
@@ -1100,27 +1101,46 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
   };
 
   for (const s of sprays) spray(s.path, s.count, s.spread, s.size);
-  spray(tuft, 46, 52, 15, 0.3);
-  spray(trunk, 10, 28, 14, 0.88);
+  spray(tuft, 370, 58, 15, 0.12);
+  spray(trunk, 80, 32, 14, 0.72);
 
-  // Fill the crown shell so the silhouette stays dense from every angle.
-  for (let i = 0; i < 180; i += 1) {
-    const r = 120 + Math.sqrt(rand()) * 700;
+  // Dense crown: outer silhouette + inner volume so it reads lush from every angle.
+  for (let i = 0; i < 1440; i += 1) {
+    const r = 80 + Math.sqrt(rand()) * 760;
     const a = rand() * Math.PI * 2;
     const x = Math.cos(a) * r;
     const y = Math.sin(a) * r;
-    const len = 15 + rnd(0, 9);
+    const len = 14 + rnd(0, 10);
     addLeaf(
       x,
       y,
-      zf(crownZ(r)) - rnd(0, 170),
-      Math.cos(a) * rnd(0.4, 1.2),
-      Math.sin(a) * rnd(0.4, 1.2),
-      rnd(-0.35, 0.5),
-      90 + rnd(-50, 50),
-      rnd(-20, 20),
+      zf(crownZ(r)) - rnd(0, 220),
+      Math.cos(a) * rnd(0.35, 1.2),
+      Math.sin(a) * rnd(0.35, 1.2),
+      rnd(-0.4, 0.55),
+      90 + rnd(-55, 55),
+      rnd(-22, 22),
       len,
-      len * rnd(0.38, 0.5),
+      len * rnd(0.36, 0.5),
+    );
+  }
+  for (let i = 0; i < 720; i += 1) {
+    const r = Math.sqrt(rand()) * 420;
+    const a = rand() * Math.PI * 2;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    const len = 13 + rnd(0, 8);
+    addLeaf(
+      x,
+      y,
+      zf(crownZ(r) - 80) - rnd(0, 280),
+      rnd(-1, 1),
+      rnd(-1, 1),
+      rnd(-0.5, 0.7),
+      90 + rnd(-60, 60),
+      rnd(-24, 24),
+      len,
+      len * rnd(0.36, 0.5),
     );
   }
 
