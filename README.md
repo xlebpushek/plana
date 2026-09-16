@@ -15,14 +15,15 @@ editor → viewer → renderer → core
 
 ## Demo (GitHub Pages)
 
-Постоянная ссылка:
-
 **https://xlebpushek.github.io/plana/**
 
-Деплой: каждый push в `main` → GitHub Actions → Pages.
+Один раз в Settings → Pages:
+1. **Source:** Deploy from a branch
+2. **Branch:** `gh-pages`
+3. **Folder:** `/ (root)`
+4. Save
 
-В настройках репозитория один раз: **Settings → Pages → Source: GitHub Actions**.  
-Для публичного доступа без логина репозиторий должен быть **Public** (или GitHub Pro для Pages из private).
+Дальше каждый push в `main` обновляет `gh-pages` через Actions.
 
 ## Develop
 
