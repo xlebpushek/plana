@@ -11,10 +11,12 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import { WORLD_FROM_MM, buildRenderMesh, type WallMeshOptions } from "./mesh.js";
 import {
+  clipEdgesInsideWalls,
   collectWallSegments,
   computeRoomCornerVerticals,
   computeWallEndCapHiding,
   type WallEndCaps,
+  type WallWorldSegment,
 } from "./walls.js";
 
 export type RendererSelection = {
@@ -76,8 +78,10 @@ export class PlanaRenderer {
   private onSelect?: (id?: ObjectId) => void;
   private document: PlanaDocument | null = null;
   private wallCaps = new Map<string, WallEndCaps>();
+  private wallSegments: WallWorldSegment[] = [];
   private pointerDown: { x: number; y: number } | null = null;
   private roomCorners?: THREE.LineSegments;
+  private framed = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
@@ -96,10 +100,13 @@ export class PlanaRenderer {
 
     this.scene.background = new THREE.Color("#09090b");
     this.scene.fog = new THREE.Fog("#09090b", 20, 50);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-    const key = new THREE.DirectionalLight(0xffffff, 0.35);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.62));
+    const key = new THREE.DirectionalLight(0xffffff, 0.85);
     key.position.set(4, -6, 10);
     this.scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.3);
+    fill.position.set(-6, 5, 3);
+    this.scene.add(fill);
     this.scene.add(this.root);
 
     const grid = new THREE.GridHelper(20, 40, "#27272a", "#18181b");
@@ -109,7 +116,6 @@ export class PlanaRenderer {
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.target.set(3.2, 3.0, 1.0);
     this.controls.maxPolarAngle = Math.PI * 0.495;
 
     // Prefer face hits; threshold helps thin geometry.
@@ -143,7 +149,8 @@ export class PlanaRenderer {
 
   setDocument(document: PlanaDocument) {
     this.document = document;
-    this.wallCaps = computeWallEndCapHiding(collectWallSegments(document));
+    this.wallSegments = collectWallSegments(document);
+    this.wallCaps = computeWallEndCapHiding(this.wallSegments);
     this.rebuildRoomCorners(document);
     const keep = new Set<ObjectId>();
 
@@ -178,6 +185,43 @@ export class PlanaRenderer {
       this.disposeRuntimeMeshes(runtime);
       this.runtimes.delete(id);
     }
+
+    if (!this.framed && this.runtimes.size > 1) {
+      this.framed = true;
+      this.frameDocument();
+    }
+  }
+
+  /**
+   * Orbit around the middle of the plan, wherever it sits in world space.
+   * Walls and floors define the centre; furniture must not drag it around.
+   */
+  frameDocument() {
+    const box = new THREE.Box3();
+    let anchored = false;
+    for (const [id, runtime] of this.runtimes) {
+      const type = this.document?.objects[id]?.type;
+      if (type !== "wall" && type !== "floor") continue;
+      if (!runtime.face) continue;
+      box.expandByObject(runtime.face);
+      anchored = true;
+    }
+    if (!anchored) box.setFromObject(this.root);
+    if (box.isEmpty()) return;
+
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const target = new THREE.Vector3(center.x, center.y, box.min.z + size.z * 0.45);
+
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    if (offset.lengthSq() < 1e-6) offset.set(6, -6, 5);
+    const radius = Math.max(size.x, size.y, size.z) / 2;
+    const distance = Math.max(radius, 1) / Math.sin((this.camera.fov * Math.PI) / 360);
+
+    this.controls.target.copy(target);
+    this.camera.position.copy(target).add(offset.setLength(distance));
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
   }
 
   resize(width: number, height: number) {
@@ -228,7 +272,7 @@ export class PlanaRenderer {
 
     const face = new THREE.Mesh(
       geometry,
-      new THREE.MeshBasicMaterial({
+      new THREE.MeshLambertMaterial({
         transparent: true,
         depthWrite: false,
         depthTest: true,
@@ -240,9 +284,14 @@ export class PlanaRenderer {
     runtime.group.add(face);
     runtime.face = face;
 
-    if (mesh.edges && mesh.edges.length > 0) {
+    const edges =
+      object.geometry.type === "wall" && mesh.edges
+        ? this.clipWallEdges(mesh.edges, object)
+        : mesh.edges;
+
+    if (edges && edges.length > 0) {
       const edgeGeo = new THREE.BufferGeometry();
-      edgeGeo.setAttribute("position", new THREE.BufferAttribute(mesh.edges, 3));
+      edgeGeo.setAttribute("position", new THREE.BufferAttribute(edges, 3));
       const edge = new THREE.LineSegments(
         edgeGeo,
         new THREE.LineBasicMaterial({ transparent: true, depthTest: true }),
@@ -252,6 +301,26 @@ export class PlanaRenderer {
       runtime.group.add(edge);
       runtime.edge = edge;
     }
+  }
+
+  /** Wall edges are local metres; junctions are plan mm. */
+  private clipWallEdges(edges: Float32Array, object: PlanaObject): Float32Array {
+    if (this.wallSegments.length < 2) return edges;
+    const [ox, oy, oz] = object.transform.position;
+    const mm = new Float32Array(edges.length);
+    for (let i = 0; i < edges.length; i += 3) {
+      mm[i] = edges[i] / WORLD_FROM_MM + ox;
+      mm[i + 1] = edges[i + 1] / WORLD_FROM_MM + oy;
+      mm[i + 2] = edges[i + 2] / WORLD_FROM_MM + oz;
+    }
+    const clipped = clipEdgesInsideWalls(mm, object.id, this.wallSegments);
+    const out = new Float32Array(clipped.length);
+    for (let i = 0; i < clipped.length; i += 3) {
+      out[i] = (clipped[i] - ox) * WORLD_FROM_MM;
+      out[i + 1] = (clipped[i + 1] - oy) * WORLD_FROM_MM;
+      out[i + 2] = (clipped[i + 2] - oz) * WORLD_FROM_MM;
+    }
+    return out;
   }
 
   private applyTransform(group: THREE.Group, object: PlanaObject) {
@@ -280,12 +349,13 @@ export class PlanaRenderer {
     const style = resolveObjectStyle(object.type, object.style);
 
     if (runtime.face && style.face) {
-      const mat = runtime.face.material as THREE.MeshBasicMaterial;
+      const mat = runtime.face.material as THREE.MeshLambertMaterial;
       mat.color = colorFromRgba(style.face.color);
       const opacity = style.face.visible ? style.face.opacity : 0;
       mat.opacity = selected && opacity > 0 ? Math.min(1, opacity + 0.12) : opacity;
-      mat.transparent = true;
-      mat.depthWrite = false;
+      // Solid objects (furniture, plants) stay opaque so volume reads correctly.
+      mat.transparent = opacity < 0.95;
+      mat.depthWrite = opacity >= 0.95;
       // Keep a tiny alpha for raycast stability on "invisible" CAD walls.
       mat.colorWrite = opacity > 0.001 || object.type === "wall";
       if (object.type === "wall" && opacity < 0.001) mat.opacity = 0.001;
@@ -389,7 +459,7 @@ export class PlanaRenderer {
       this.roomCorners.removeFromParent();
       this.roomCorners = undefined;
     }
-    const corners = computeRoomCornerVerticals(collectWallSegments(document));
+    const corners = computeRoomCornerVerticals(this.wallSegments);
     if (!corners.length) return;
     const positions: number[] = [];
     for (const c of corners) {

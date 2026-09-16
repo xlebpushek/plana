@@ -9,6 +9,8 @@ export type PlanaViewerProps = {
   activeId?: ObjectId;
   className?: string;
   onSelect?: (id?: ObjectId) => void;
+  /** Bump to re-centre the orbit pivot on the plan. */
+  focusKey?: number;
 };
 
 export function PlanaViewer({
@@ -17,6 +19,7 @@ export function PlanaViewer({
   activeId,
   className,
   onSelect,
+  focusKey = 0,
 }: PlanaViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<PlanaRenderer | null>(null);
@@ -52,6 +55,11 @@ export function PlanaViewer({
   useEffect(() => {
     rendererRef.current?.setSelection({ selectedIds, activeId });
   }, [selectedIds, activeId]);
+
+  useEffect(() => {
+    if (!focusKey) return;
+    rendererRef.current?.frameDocument();
+  }, [focusKey]);
 
   return (
     <div className={["plana-viewer", className].filter(Boolean).join(" ")}>

@@ -107,5 +107,35 @@ export function geometryBounds(geometry: Geometry): AABB {
     return bounds;
   }
 
+  if (geometry.type === "lathe") {
+    let maxR = 0;
+    let minZ = Number.POSITIVE_INFINITY;
+    let maxZ = Number.NEGATIVE_INFINITY;
+    for (const [r, z] of geometry.profile) {
+      maxR = Math.max(maxR, r);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+    }
+    bounds = expandAABB(bounds, [-maxR, -maxR, minZ]);
+    return expandAABB(bounds, [maxR, maxR, maxZ]);
+  }
+
+  if (geometry.type === "tube") {
+    const radii = Array.isArray(geometry.radius) ? geometry.radius : [geometry.radius];
+    const r = Math.max(...radii);
+    for (const p of geometry.points) {
+      bounds = expandAABB(bounds, [p[0] - r, p[1] - r, p[2] - r]);
+      bounds = expandAABB(bounds, [p[0] + r, p[1] + r, p[2] + r]);
+    }
+    return bounds;
+  }
+
+  if (geometry.type === "leaf") {
+    const hx = geometry.width / 2;
+    const hy = geometry.thickness / 2 + Math.abs(geometry.cup) * geometry.width;
+    bounds = expandAABB(bounds, [-hx, -hy, 0]);
+    return expandAABB(bounds, [hx, hy, geometry.length]);
+  }
+
   return bounds;
 }

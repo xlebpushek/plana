@@ -211,5 +211,41 @@ describe("buildRenderMesh", () => {
     });
     expect(leaf).not.toBeNull();
     expect(leaf!.indices!.length).toBeGreaterThan(0);
+    const pot = buildRenderMesh({
+      type: "lathe",
+      profile: [
+        [0, 0],
+        [40, 10],
+        [80, 80],
+        [50, 120],
+      ],
+      segments: 16,
+    });
+    expect(pot).not.toBeNull();
+    expect(pot!.indices!.length).toBeGreaterThan(0);
+    const trunk = buildRenderMesh({
+      type: "tube",
+      points: [
+        [0, 0, 0],
+        [20, 10, 80],
+        [0, 20, 160],
+      ],
+      radius: [12, 6, 3],
+      radialSegments: 8,
+      tubularSegments: 16,
+      capped: true,
+    });
+    expect(trunk).not.toBeNull();
+    expect(trunk!.indices!.length).toBeGreaterThan(0);
+    const blade = buildRenderMesh({
+      type: "leaf",
+      length: 40,
+      width: 18,
+      thickness: 1.2,
+      cup: 0.3,
+      segments: 6,
+    });
+    expect(blade).not.toBeNull();
+    expect(blade!.indices!.length).toBeGreaterThan(0);
   });
 });

@@ -12,13 +12,14 @@
   --primary-foreground: #09090b;
   --danger: #f87171;
   --radius: 0.5rem;
-  --topbar-h: 52px;
+  --topbar-h: 60px;
+  --indent: 13px;
   color-scheme: dark;
 }
 
 .plana-editor {
   display: grid;
-  grid-template-rows: var(--topbar-h) 1fr 28px;
+  grid-template-rows: var(--topbar-h) minmax(0, 1fr);
   width: 100%;
   height: 100%;
   min-height: 100dvh;
@@ -32,10 +33,10 @@
 .plana-topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   height: var(--topbar-h);
   min-height: var(--topbar-h);
-  padding: 0 10px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
   background: rgba(9, 9, 11, 0.92);
   backdrop-filter: blur(12px);
@@ -43,23 +44,33 @@
 }
 
 .plana-topbar-start,
-.plana-topbar-end {
+.plana-topbar-end,
+.plana-actions {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 0 0 auto;
   min-width: 0;
+  height: 100%;
+}
+
+.plana-topbar-start,
+.plana-topbar-end {
+  flex: 1 1 0;
 }
 
 .plana-topbar-end {
-  margin-left: auto;
-  position: relative;
+  justify-content: flex-end;
+}
+
+.plana-actions {
+  flex: 0 0 auto;
 }
 
 .plana-brand-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  justify-content: center;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -73,63 +84,29 @@
 .plana-subtitle {
   color: var(--muted-foreground);
   font-size: 11px;
+  line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.plana-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.plana-toolbar::-webkit-scrollbar {
-  display: none;
-}
-
-.plana-menu-btn {
-  display: none;
-}
-
-.plana-menu-sheet {
-  display: none;
-}
-
 .plana-sep {
   width: 1px;
-  height: 20px;
+  height: 22px;
   background: var(--border);
   flex: 0 0 auto;
-  margin: 0 2px;
+  margin: 0 4px;
 }
 
-.plana-file-btn {
+.plana-icon-btn {
   appearance: none;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--foreground);
-  border-radius: calc(var(--radius) - 2px);
-  padding: 6px 10px;
-  font: inherit;
-  cursor: pointer;
-  white-space: nowrap;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
-}
-
-.plana-file-btn:hover {
-  background: var(--accent);
-}
-
-.plana-icon-btn,
-.plana-toolbar button,
-.plana-menu-sheet button,
-.plana-tree button {
-  appearance: none;
+  padding: 0;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--foreground);
@@ -139,14 +116,8 @@
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.plana-icon-btn {
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  padding: 0;
+.plana-icon-btn:hover {
+  background: var(--accent);
 }
 
 .plana-icon-btn.is-active {
@@ -154,42 +125,14 @@
   border-color: #3f3f46;
 }
 
-.plana-ico {
-  line-height: 1;
-  font-size: 16px;
-  letter-spacing: 0.02em;
+.plana-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
-.plana-toolbar button,
-.plana-menu-sheet button {
-  padding: 6px 10px;
-  white-space: nowrap;
-  flex: 0 0 auto;
-}
-
-.plana-btn-primary {
-  background: var(--primary) !important;
-  color: var(--primary-foreground) !important;
-  border-color: var(--primary) !important;
-}
-
-.plana-btn-danger:not(:disabled):hover {
+.plana-icon-btn--danger:not(:disabled):hover {
   border-color: var(--danger);
   color: var(--danger);
-}
-
-.plana-toolbar button:hover,
-.plana-menu-sheet button:hover,
-.plana-tree button:hover,
-.plana-icon-btn:hover,
-.plana-file-btn:hover {
-  background: var(--accent);
-}
-
-.plana-toolbar button:disabled,
-.plana-menu-sheet button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 .plana-layout {
@@ -235,48 +178,101 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px;
+  padding: 0 12px;
+  height: 24px;
   border-bottom: 1px solid var(--border);
   background: var(--card);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
+  line-height: 1;
   color: var(--muted-foreground);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+/* —— Hierarchy —— */
 
 .plana-tree {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px;
+  padding: 6px 8px 12px;
 }
 
-.plana-tree button {
+.plana-tree-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+}
+
+.plana-tree-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #232327;
+  pointer-events: none;
+}
+
+.plana-twisty,
+.plana-twisty-spacer {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.plana-twisty {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.plana-twisty:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.plana-tree-item {
+  appearance: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: left;
-  border-color: transparent;
-  padding: 7px 8px;
-  min-height: 34px;
+  padding: 4px 8px;
+  min-height: 26px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
-.plana-tree button.is-active {
+.plana-tree-item:hover {
   background: var(--accent);
-  border-color: var(--border);
 }
 
-.plana-type {
-  color: var(--muted-foreground);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  min-width: 70px;
-  flex: 0 0 auto;
+.plana-tree-item.is-active {
+  background: var(--accent);
+  border-color: #52525b;
+}
+
+.plana-tree-item.is-child {
+  background: rgba(39, 39, 42, 0.45);
 }
 
 .plana-tree-name {
@@ -284,6 +280,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.plana-type {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.plana-count {
+  flex: 0 0 auto;
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 10px;
+  text-align: center;
+}
+
+/* —— Viewport —— */
 
 .plana-viewport {
   position: relative;
@@ -295,10 +313,9 @@
 .plana-hint {
   position: absolute;
   left: 12px;
-  right: 12px;
   bottom: 12px;
   width: fit-content;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - 96px);
   padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -312,6 +329,75 @@
 .plana-hint-mobile {
   display: none;
 }
+
+.plana-create {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 20;
+}
+
+.plana-fab {
+  appearance: none;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fafafa;
+  color: #09090b;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s ease;
+}
+
+.plana-fab:hover {
+  transform: translateY(-1px);
+}
+
+.plana-fab.is-active {
+  transform: rotate(45deg);
+}
+
+.plana-create-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  min-width: 168px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #0a0a0b;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+}
+
+.plana-create-sheet button {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.plana-create-sheet button:hover {
+  background: var(--accent);
+}
+
+/* —— Inspector —— */
 
 .plana-inspector {
   display: flex;
@@ -369,25 +455,6 @@
   line-height: 1.45;
 }
 
-.plana-statusbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 12px;
-  border-top: 1px solid var(--border);
-  color: var(--muted-foreground);
-  font-size: 11px;
-  background: var(--card);
-  overflow: hidden;
-}
-
-.plana-status-selected {
-  margin-left: auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .plana-backdrop {
   position: absolute;
   inset: 0;
@@ -398,65 +465,30 @@
 
 @media (max-width: 900px) {
   .plana-editor.is-mobile {
-    --topbar-h: 44px;
-    grid-template-rows: var(--topbar-h) 1fr 24px;
+    --topbar-h: 54px;
+    grid-template-rows: var(--topbar-h) minmax(0, 1fr);
   }
 
   .plana-editor.is-mobile .plana-topbar {
-    gap: 4px;
-    padding: 0 6px;
-  }
-
-  .plana-editor.is-mobile .plana-topbar-start {
-    gap: 4px;
+    gap: 6px;
+    padding: 0 8px;
   }
 
   .plana-editor.is-mobile .plana-brand-text {
     display: none;
   }
 
-  .plana-editor.is-mobile .plana-toolbar--desktop {
-    display: none;
-  }
-
-  .plana-editor.is-mobile .plana-menu-btn {
-    display: inline-flex;
+  .plana-editor.is-mobile .plana-actions {
+    gap: 2px;
   }
 
   .plana-editor.is-mobile .plana-icon-btn {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
   }
 
-  .plana-editor.is-mobile .plana-menu-sheet {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    width: min(72vw, 220px);
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: #0a0a0b;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-    z-index: 60;
-  }
-
-  .plana-editor.is-mobile .plana-menu-sheet button,
-  .plana-editor.is-mobile .plana-menu-sheet .plana-file-btn {
-    width: 100%;
-    justify-content: flex-start;
-    text-align: left;
-    min-height: 40px;
-    padding: 8px 10px;
-  }
-
-  .plana-editor.is-mobile .plana-menu-sheet .plana-sep {
-    width: 100%;
-    height: 1px;
-    margin: 4px 0;
+  .plana-editor.is-mobile .plana-sep {
+    margin: 0 2px;
   }
 
   .plana-editor.is-mobile .plana-layout {
@@ -512,31 +544,10 @@
     font-size: 11px;
     padding: 6px 8px;
   }
-
-  .plana-status-count {
-    display: none;
-  }
-
-  .plana-statusbar {
-    padding: 0 8px;
-    gap: 8px;
-  }
 }
 
 @media (max-width: 560px) {
   .plana-grid3 {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .plana-type {
-    min-width: 56px;
-  }
-}
-
-/* Desktop: menu button hidden; tools stay in toolbar */
-@media (min-width: 901px) {
-  .plana-menu-btn,
-  .plana-menu-sheet {
-    display: none !important;
   }
 }
