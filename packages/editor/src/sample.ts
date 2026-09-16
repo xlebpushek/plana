@@ -83,6 +83,25 @@ const cyl = (
   style,
 });
 
+const lathe = (
+  id: string,
+  type: string,
+  x: number,
+  y: number,
+  z: number,
+  profile: Array<[number, number]>,
+  name: string,
+  style?: ObjectStyle,
+  segments = 24,
+): PlanaObject => ({
+  id,
+  type,
+  transform: t(x, y, z),
+  geometry: { type: "lathe", profile, segments },
+  metadata: { name },
+  style,
+});
+
 const paint = (
   r: number,
   g: number,
@@ -115,6 +134,11 @@ const glassPad = {
 } satisfies ObjectStyle;
 const keycaps = paint(232, 232, 228, 0.97, 0.2);
 const micBody = paint(28, 30, 36, 0.98, 0.2);
+const fridgeWhite = paint(228, 230, 232, 0.98, 0.22);
+const stoveWhite = paint(242, 242, 244, 0.97, 0.25);
+const counter = paint(28, 28, 30, 0.98, 0.18);
+const steel = paint(168, 172, 176, 0.97, 0.3);
+const sinkSteel = paint(120, 124, 128, 0.96, 0.3);
 
 function add(doc: PlanaDocument, object: PlanaObject, parent: string): PlanaDocument {
   return addObject(doc, object, parent);
@@ -200,9 +224,8 @@ function wallObject(spec: WallSpec): PlanaObject {
 
 /**
  * Opening layout baked into the sample:
- * - North strip: window on west corridor (was kitchen east), door on east
- *   kitchen (was west entry). Same source offsets — window stays near the
- *   north wall, entry door stays near the partition.
+ * - North strip: window on west kitchen, door on east corridor. Bathroom
+ *   sits closer to the entry door so the kitchen bay by the window is wider.
  * - Living: window + balcony door on west wall with original east offsets
  *   (window near partition, door near south) and 180° yaw.
  * - Partition / bath doors flipped to the other side of their wall.
@@ -237,16 +260,16 @@ const WALLS: WallSpec[] = [
     length: EAST_LEN,
     cutouts: [{ kind: "door", offset: 1.23, width: 0.8, height: 2.04 }],
   },
-  { id: "wall-bath-west", name: "Bath West Wall", along: "z", origin: 0, position: 1.46, length: 1.41 },
-  { id: "wall-bath-east", name: "Bath East Wall", along: "z", origin: 0, position: 3.78, length: 1.41 },
+  { id: "wall-bath-west", name: "Bath West Wall", along: "z", origin: 0, position: 2.64, length: 1.41 },
+  { id: "wall-bath-east", name: "Bath East Wall", along: "z", origin: 0, position: 4.96, length: 1.41 },
   {
     id: "wall-bath-south",
     name: "Bath South Wall",
     along: "x",
-    origin: 1.385,
+    origin: 2.565,
     position: 1.335,
     length: 2.47,
-    cutouts: [{ kind: "door", offset: 0.5, width: 0.8, height: 2.04 }],
+    cutouts: [{ kind: "door", offset: flipOffset(2.47, 0.5, 0.8), width: 0.8, height: 2.04 }],
   },
   {
     id: "wall-partition",
@@ -557,6 +580,184 @@ function addDesk(doc: PlanaDocument, parent: string): PlanaDocument {
   local("pc-feet-b", "appliance", pcX + 80, pcY - 160, z, 28, 28, 12, "PC Foot B", charcoal);
   local("pc-feet-c", "appliance", pcX - 80, pcY + 160, z, 28, 28, 12, "PC Foot C", charcoal);
   local("pc-feet-d", "appliance", pcX + 80, pcY + 160, z, 28, 28, 12, "PC Foot D", charcoal);
+  return doc;
+}
+
+function addFoldingChair(
+  doc: PlanaDocument,
+  parent: string,
+  id: string,
+  name: string,
+  x: number,
+  y: number,
+  yawDeg: number,
+): PlanaDocument {
+  doc = add(
+    doc,
+    {
+      id,
+      type: "group",
+      transform: {
+        ...t(x, y, 0),
+        rotation: quatFromEulerDeg(0, 0, yawDeg),
+      },
+      children: [],
+      metadata: { name },
+    },
+    parent,
+  );
+  const z = FLOOR_T;
+  const white = stoveWhite;
+  doc = add(doc, box(`${id}-seat`, "chair", 0, 0, z + 430, 360, 340, 18, "Seat", white), id);
+  doc = add(doc, box(`${id}-back`, "chair", 0, 155, z + 448, 360, 16, 390, "Back", white), id);
+  for (let i = 0; i < 4; i += 1) {
+    doc = add(
+      doc,
+      box(`${id}-slat-${i}`, "chair", 0, 148, z + 500 + i * 70, 330, 8, 28, `Back Slat ${i + 1}`, white),
+      id,
+    );
+  }
+  doc = add(doc, box(`${id}-leg-fl`, "chair", -150, -140, z, 22, 22, 430, "Leg FL", white), id);
+  doc = add(doc, box(`${id}-leg-fr`, "chair", 150, -140, z, 22, 22, 430, "Leg FR", white), id);
+  doc = add(doc, box(`${id}-leg-bl`, "chair", -150, 150, z, 22, 22, 448, "Leg BL", white), id);
+  doc = add(doc, box(`${id}-leg-br`, "chair", 150, 150, z, 22, 22, 448, "Leg BR", white), id);
+  doc = add(doc, box(`${id}-brace`, "chair", 0, 10, z + 180, 18, 280, 18, "Brace", white, 12), id);
+  return doc;
+}
+
+/** Kitchen along the west window bay: cabinets on the partition, table on the north wall. */
+function addKitchen(doc: PlanaDocument, parent: string): PlanaDocument {
+  const z = FLOOR_T;
+  const south = 2455;
+  const east = 2565;
+  const runY = south - 300;
+  const fridgeW = 600;
+  const fridgeD = 600;
+  const fridgeH = 1780;
+  const cabW = 1200;
+  const cabD = 600;
+  const stoveW = 500;
+  const fridgeX = east - fridgeW / 2;
+  const cabX = fridgeX - fridgeW / 2 - cabW / 2;
+  const stoveX = cabX - cabW / 2 - stoveW / 2;
+
+  doc = add(doc, group("kitchen-run", "Kitchen Cabinets", cabX, runY, 0), parent);
+
+  const put = (
+    id: string,
+    type: string,
+    x: number,
+    y: number,
+    zb: number,
+    sx: number,
+    sy: number,
+    sz: number,
+    name: string,
+    style?: ObjectStyle,
+    yaw = 0,
+  ) => {
+    doc = add(doc, box(id, type, x - cabX, y - runY, zb, sx, sy, sz, name, style, yaw), "kitchen-run");
+  };
+
+  put("fridge-body", "appliance", fridgeX, runY, z, fridgeW, fridgeD, fridgeH, "Fridge", fridgeWhite);
+  put("fridge-door-top", "appliance", fridgeX, runY - fridgeD / 2 + 10, z + 620, fridgeW - 30, 18, 1120, "Fridge Door", fridgeWhite);
+  put("fridge-door-bot", "appliance", fridgeX, runY - fridgeD / 2 + 10, z + 40, fridgeW - 30, 18, 540, "Freezer Door", fridgeWhite);
+  put("fridge-handle-t", "appliance", fridgeX + 220, runY - fridgeD / 2 - 4, z + 1480, 18, 12, 90, "Fridge Handle", steel);
+  put("fridge-handle-b", "appliance", fridgeX, runY - fridgeD / 2 - 4, z + 280, 18, 12, 18, "Freezer Knob", steel);
+
+  put("cab-base", "cabinet", cabX, runY, z, cabW, cabD, 820, "Base Cabinets", cream);
+  put("cab-door-l", "cabinet", cabX - 290, runY - cabD / 2 + 10, z + 50, 540, 16, 720, "Left Base Door", cream);
+  put("cab-door-r", "cabinet", cabX + 290, runY - cabD / 2 + 10, z + 50, 540, 16, 720, "Right Base Door", cream);
+  put("cab-handle-l", "appliance", cabX - 80, runY - cabD / 2 - 4, z + 430, 12, 10, 110, "Left Handle", black);
+  put("cab-handle-r", "appliance", cabX + 80, runY - cabD / 2 - 4, z + 430, 12, 10, 110, "Right Handle", black);
+  put("cab-top", "cabinet", cabX, runY + 8, z + 820, cabW + 20, cabD + 20, 36, "Countertop", counter);
+
+  put("cab-upper", "cabinet", cabX, south - 150, z + 1480, cabW, 300, 720, "Wall Cabinets", cream);
+  put("cab-u-l", "cabinet", cabX - 390, south - 150 - 150 + 8, z + 1510, 380, 16, 660, "Wall Door L", cream);
+  put("cab-u-c", "cabinet", cabX, south - 150 - 150 + 8, z + 1510, 380, 16, 660, "Wall Door C", cream);
+  put("cab-u-r", "cabinet", cabX + 390, south - 150 - 150 + 8, z + 1510, 380, 16, 660, "Wall Door R", cream);
+  put("cab-u-k-l", "appliance", cabX - 390, south - 292, z + 1580, 14, 10, 14, "Knob L", black);
+  put("cab-u-k-c", "appliance", cabX, south - 292, z + 1580, 14, 10, 14, "Knob C", black);
+  put("cab-u-k-r", "appliance", cabX + 390, south - 292, z + 1580, 14, 10, 14, "Knob R", black);
+  put("cab-rail", "decor", cabX, south - 310, z + 1360, 900, 12, 12, "Rail", black);
+
+  put("stove-body", "appliance", stoveX, runY, z, stoveW, 600, 850, "Stove", stoveWhite);
+  put("stove-top", "appliance", stoveX, runY, z + 850, stoveW, 600, 24, "Cooktop", charcoal);
+  put("stove-oven", "appliance", stoveX, runY - 300 + 12, z + 80, 420, 16, 520, "Oven Door", stoveWhite);
+  put("stove-glass", "appliance", stoveX, runY - 300 + 4, z + 160, 340, 8, 340, "Oven Window", screen);
+  for (const [i, ox] of [-90, -30, 30, 90].entries()) {
+    doc = add(
+      doc,
+      cyl(`stove-knob-${i}`, "appliance", stoveX - cabX + ox, runY - 300 + 20 - runY, z + 790, 14, 16, `Stove Knob ${i + 1}`, stoveWhite),
+      "kitchen-run",
+    );
+  }
+  for (const [i, ox, oy] of [
+    [0, -90, -90],
+    [1, 90, -90],
+    [2, -90, 90],
+    [3, 90, 90],
+  ] as Array<[number, number, number]>) {
+    doc = add(
+      doc,
+      cyl(`burner-${i}`, "appliance", stoveX - cabX + ox, oy, z + 874, 55, 6, `Burner ${i + 1}`, steel, 20),
+      "kitchen-run",
+    );
+  }
+
+  doc = add(
+    doc,
+    lathe(
+      "sink-bowl",
+      "appliance",
+      cabX - cabX,
+      runY - 40 - runY,
+      z + 780,
+      [
+        [0, 0],
+        [90, 0],
+        [105, 8],
+        [110, 30],
+        [108, 90],
+        [100, 140],
+        [0, 140],
+      ],
+      "Sink",
+      sinkSteel,
+      28,
+    ),
+    "kitchen-run",
+  );
+  doc = add(doc, cyl("faucet-base", "appliance", 0, 80, z + 856, 22, 10, "Faucet Base", steel, 16), "kitchen-run");
+  doc = add(doc, cyl("faucet-stem", "appliance", 0, 80, z + 866, 10, 180, "Faucet Stem", steel, 12), "kitchen-run");
+  put("faucet-spout", "appliance", cabX, runY - 40, z + 1036, 16, 120, 16, "Faucet Spout", steel);
+
+  doc = add(doc, box("mw", "appliance", 330, 950, z + 800, 320, 440, 260, "Microwave", cream), parent);
+  doc = add(doc, box("mw-window", "appliance", 482, 950, z + 830, 8, 360, 180, "Microwave Window", screen), parent);
+  doc = add(doc, box("radiator", "appliance", 195, 950, z + 90, 90, 1100, 420, "Radiator", stoveWhite), parent);
+  for (let i = 0; i < 7; i += 1) {
+    doc = add(
+      doc,
+      box(`rad-fin-${i}`, "appliance", 210, 950 - 450 + i * 150, z + 110, 70, 24, 380, `Radiator Fin ${i + 1}`, stoveWhite),
+      parent,
+    );
+  }
+
+  const tableX = 1080;
+  const tableY = 530;
+  doc = add(doc, group("kitchen-table", "Kitchen Table", tableX, tableY, 0), parent);
+  doc = add(doc, box("table-top", "table", 0, 0, z + 720, 750, 750, 32, "Table Top", stoveWhite), "kitchen-table");
+  for (const [i, lx, ly] of [
+    [0, -330, -330],
+    [1, 330, -330],
+    [2, -330, 330],
+    [3, 330, 330],
+  ] as Array<[number, number, number]>) {
+    doc = add(doc, box(`table-leg-${i}`, "table", lx, ly, z, 45, 45, 720, `Table Leg ${i + 1}`, stoveWhite), "kitchen-table");
+  }
+
+  doc = addFoldingChair(doc, parent, "chair-south", "Folding Chair", tableX, tableY + 560, 0);
+  doc = addFoldingChair(doc, parent, "chair-east", "Folding Chair 2", tableX + 560, tableY + 40, -90);
   return doc;
 }
 
@@ -939,13 +1140,13 @@ export function createApartmentDocument(): PlanaDocument {
 
   doc = add(doc, group("openings", "Openings"), "apartment");
 
-  // West corridor window (was kitchen east) — near the north wall.
+  // West kitchen window — near the north wall.
   doc = add(
     doc,
     openingBox(
-      "window-corridor-west",
+      "window-kitchen-west",
       "window",
-      "Corridor Window",
+      "Kitchen Window",
       0.075,
       openingCenter(0, 0.29, 1.32),
       "z",
@@ -957,13 +1158,13 @@ export function createApartmentDocument(): PlanaDocument {
     "openings",
   );
 
-  // East kitchen entry door (was west corridor) — nearer the partition.
+  // East corridor entry door — nearer the partition.
   doc = add(
     doc,
     openingBox(
-      "door-kitchen-east",
+      "door-corridor-east",
       "door",
-      "Kitchen Entry Door",
+      "Entry Door",
       6.345,
       openingCenter(0, 1.23, 0.8),
       "z",
@@ -1029,7 +1230,7 @@ export function createApartmentDocument(): PlanaDocument {
       "door-bath",
       "door",
       "Bath Door",
-      openingCenter(1.385, 0.5, 0.8),
+      openingCenter(2.565, flipOffset(2.47, 0.5, 0.8), 0.8),
       1.335,
       "x",
       0.8,
@@ -1043,14 +1244,12 @@ export function createApartmentDocument(): PlanaDocument {
   doc = add(
     doc,
     floorPolygon("floor-hall", "Hall Floor", [
-      [0.15, 0.15],
-      [1.385, 0.15],
-      [1.385, 1.41],
-      [3.855, 1.41],
-      [3.855, 0.15],
+      [2.565, 1.41],
+      [5.035, 1.41],
+      [5.035, 0.15],
       [6.27, 0.15],
       [6.27, 2.455],
-      [0.15, 2.455],
+      [2.565, 2.455],
     ]),
     "corridor",
   );
@@ -1059,15 +1258,26 @@ export function createApartmentDocument(): PlanaDocument {
   doc = add(
     doc,
     floorPolygon("floor-bath", "Bath Floor", [
-      [1.535, 0.15],
-      [3.705, 0.15],
-      [3.705, 1.26],
-      [1.535, 1.26],
+      [2.715, 0.15],
+      [4.885, 0.15],
+      [4.885, 1.26],
+      [2.715, 1.26],
     ]),
     "bathroom",
   );
 
   doc = add(doc, group("kitchen", "Kitchen"), "apartment");
+  doc = add(
+    doc,
+    floorPolygon("floor-kitchen", "Kitchen Floor", [
+      [0.15, 0.15],
+      [2.565, 0.15],
+      [2.565, 2.455],
+      [0.15, 2.455],
+    ]),
+    "kitchen",
+  );
+  doc = addKitchen(doc, "kitchen");
 
   doc = add(doc, group("living", "Living Room"), "apartment");
   doc = add(
