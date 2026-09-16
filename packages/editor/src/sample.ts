@@ -182,6 +182,14 @@ function wallPieces(spec: WallSpec): PlanaObject[] {
   return pieces;
 }
 
+/**
+ * flat.ts is authored X-east / Z-south. Our XY floor uses the same numbers for
+ * wall spines. Openings + shelving in flat.ts are a mirror of the real flat
+ * relative to those spines — un-mirror along each wall / living X.
+ */
+const mirrorCut = (length: number, offset: number, width: number) =>
+  length - offset - width;
+
 const WALLS: WallSpec[] = [
   { id: "wall-north", name: "Север", along: "x", origin: 0, position: 0.075, length: 6.42 },
   { id: "wall-south", name: "Юг", along: "x", origin: 0, position: 5.86, length: 6.42 },
@@ -192,7 +200,7 @@ const WALLS: WallSpec[] = [
     origin: 0,
     position: 0.075,
     length: 2.53,
-    cutouts: [{ kind: "door", offset: 1.23, width: 0.8, height: 2.04 }],
+    cutouts: [{ kind: "door", offset: mirrorCut(2.53, 1.23, 0.8), width: 0.8, height: 2.04 }],
   },
   {
     id: "wall-west-living",
@@ -209,7 +217,15 @@ const WALLS: WallSpec[] = [
     origin: 0,
     position: 6.345,
     length: 2.53,
-    cutouts: [{ kind: "window", offset: 0.29, width: 1.32, height: 1.46, sill: 0.8 }],
+    cutouts: [
+      {
+        kind: "window",
+        offset: mirrorCut(2.53, 0.29, 1.32),
+        width: 1.32,
+        height: 1.46,
+        sill: 0.8,
+      },
+    ],
   },
   {
     id: "wall-east-living",
@@ -219,8 +235,19 @@ const WALLS: WallSpec[] = [
     position: 6.345,
     length: 3.405,
     cutouts: [
-      { kind: "window", offset: 0.585, width: 1.4, height: 1.46, sill: 0.8 },
-      { kind: "door", offset: 1.985, width: 0.7, height: 2.26 },
+      {
+        kind: "window",
+        offset: mirrorCut(3.405, 0.585, 1.4),
+        width: 1.4,
+        height: 1.46,
+        sill: 0.8,
+      },
+      {
+        kind: "door",
+        offset: mirrorCut(3.405, 1.985, 0.7),
+        width: 0.7,
+        height: 2.26,
+      },
     ],
   },
   { id: "wall-bath-west", name: "С/у запад", along: "z", origin: 0, position: 1.46, length: 1.41 },
@@ -232,7 +259,7 @@ const WALLS: WallSpec[] = [
     origin: 1.385,
     position: 1.335,
     length: 2.47,
-    cutouts: [{ kind: "door", offset: 0.88, width: 0.8, height: 2.04 }],
+    cutouts: [{ kind: "door", offset: mirrorCut(2.47, 0.88, 0.8), width: 0.8, height: 2.04 }],
   },
   {
     id: "wall-partition",
@@ -241,9 +268,13 @@ const WALLS: WallSpec[] = [
     origin: 0,
     position: 2.53,
     length: 6.42,
-    cutouts: [{ kind: "door", offset: 0.575, width: 0.84, height: 2.04 }],
+    cutouts: [{ kind: "door", offset: mirrorCut(6.42, 0.575, 0.84), width: 0.84, height: 2.04 }],
   },
 ];
+
+/** Opening center from wall origin + mirrored cutout. */
+const openAt = (origin: number, length: number, offset: number, width: number) =>
+  origin + mirrorCut(length, offset, width) + width / 2;
 
 function floorSlab(
   id: string,
@@ -385,34 +416,82 @@ export function createApartmentDocument(): PlanaDocument {
   }
 
   doc = add(doc, group("openings", "Проёмы"), "apartment");
+  // Centers match un-mirrored cutouts (flat.ts offsets flipped along each wall).
   doc = add(
     doc,
-    openingBox("door-entry", "door", "дверь", 0.075, 1.63, "z", 0.8, 2.04),
+    openingBox("door-entry", "door", "дверь", 0.075, openAt(0, 2.53, 1.23, 0.8), "z", 0.8, 2.04),
     "openings",
   );
   doc = add(
     doc,
-    openingBox("door-partition", "door", "дверь", 0.995, 2.53, "x", 0.84, 2.04),
+    openingBox(
+      "door-partition",
+      "door",
+      "дверь",
+      openAt(0, 6.42, 0.575, 0.84),
+      2.53,
+      "x",
+      0.84,
+      2.04,
+    ),
     "openings",
   );
   doc = add(
     doc,
-    openingBox("door-bath", "door", "дверь", 2.665, 1.335, "x", 0.8, 2.04),
+    openingBox(
+      "door-bath",
+      "door",
+      "дверь",
+      openAt(1.385, 2.47, 0.88, 0.8),
+      1.335,
+      "x",
+      0.8,
+      2.04,
+    ),
     "openings",
   );
   doc = add(
     doc,
-    openingBox("door-living-east", "door", "дверь", 6.345, 4.865, "z", 0.7, 2.26),
+    openingBox(
+      "door-living-east",
+      "door",
+      "дверь",
+      6.345,
+      openAt(2.53, 3.405, 1.985, 0.7),
+      "z",
+      0.7,
+      2.26,
+    ),
     "openings",
   );
   doc = add(
     doc,
-    openingBox("window-kitchen", "window", "окно", 6.345, 0.95, "z", 1.32, 1.46, 0.8),
+    openingBox(
+      "window-kitchen",
+      "window",
+      "окно",
+      6.345,
+      openAt(0, 2.53, 0.29, 1.32),
+      "z",
+      1.32,
+      1.46,
+      0.8,
+    ),
     "openings",
   );
   doc = add(
     doc,
-    openingBox("window-living", "window", "окно", 6.345, 3.815, "z", 1.4, 1.46, 0.8),
+    openingBox(
+      "window-living",
+      "window",
+      "окно",
+      6.345,
+      openAt(2.53, 3.405, 0.585, 1.4),
+      "z",
+      1.4,
+      1.46,
+      0.8,
+    ),
     "openings",
   );
 
@@ -436,7 +515,8 @@ export function createApartmentDocument(): PlanaDocument {
 
   doc = add(doc, group("living", "Гостиная"), "apartment");
   doc = add(doc, floorSlab("floor-living", "Пол гостиная", 0.15, 2.605, 6.12, 3.18), "living");
-  doc = addShelving(doc, "living", 3.633, 2.605);
+  // flat.ts xWest=3.633 is mirrored across living; keep north face on partition.
+  doc = addShelving(doc, "living", 6.42 - 3.633 - 0.392, 2.605);
 
   return doc;
 }
