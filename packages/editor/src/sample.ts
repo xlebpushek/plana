@@ -348,205 +348,264 @@ function addShelving(doc: PlanaDocument, parent: string, xWest: number, zNorth: 
 }
 
 /**
- * Jade plant / money tree (~1 m tall Crassula ovata) with segmented trunk,
- * forked branches and fleshy oval leaves (flattened cylinders).
+ * Crassula ovata (jade plant / толстянка / «денежное дерево») ~1 m tall.
+ * Thick grey-brown dichotomous trunk, opposite fleshy obovate leaves —
+ * a real succulent shrub, not a canopy tree and not Pachira aquatica.
  * Placed in the living-room south-west corner.
  */
-function addMoneyTree(doc: PlanaDocument, parent: string): PlanaDocument {
+function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
+  const rootId = "jade-plant";
   const gx = 0.55 * MM;
   const gy = 5.35 * MM;
-  doc = add(doc, group("money-tree", "Money Tree", gx, gy, 0), parent);
+  doc = add(doc, group(rootId, "Jade Plant (Crassula ovata)", gx, gy, 0), parent);
 
   const potStyle = {
-    face: { color: { r: 92, g: 72, b: 55, a: 1 }, opacity: 0.4, visible: true },
-    edge: { color: { r: 70, g: 55, b: 40, a: 1 }, width: 1, opacity: 0.85, visible: true },
+    face: { color: { r: 168, g: 120, b: 88, a: 1 }, opacity: 0.42, visible: true },
+    edge: { color: { r: 130, g: 90, b: 65, a: 1 }, width: 1, opacity: 0.85, visible: true },
   };
   const soilStyle = {
-    face: { color: { r: 55, g: 42, b: 30, a: 1 }, opacity: 0.45, visible: true },
-    edge: { color: { r: 40, g: 30, b: 22, a: 1 }, width: 1, opacity: 0.7, visible: true },
+    face: { color: { r: 62, g: 48, b: 36, a: 1 }, opacity: 0.5, visible: true },
+    edge: { color: { r: 45, g: 34, b: 26, a: 1 }, width: 1, opacity: 0.7, visible: true },
   };
-  const woodStyle = {
-    face: { color: { r: 110, g: 82, b: 52, a: 1 }, opacity: 0.4, visible: true },
-    edge: { color: { r: 80, g: 58, b: 36, a: 1 }, width: 1, opacity: 0.75, visible: true },
+  // Mature Crassula bark: grey-brown, almost corky
+  const barkStyle = {
+    face: { color: { r: 118, g: 98, b: 78, a: 1 }, opacity: 0.42, visible: true },
+    edge: { color: { r: 88, g: 72, b: 56, a: 1 }, width: 1, opacity: 0.8, visible: true },
   };
-  const leafFace = { color: { r: 46, g: 150, b: 78, a: 1 }, opacity: 0.5, visible: true };
-  const leafEdge = { color: { r: 28, g: 110, b: 58, a: 1 }, width: 0.8, opacity: 0.7, visible: true };
-  const leafTipFace = { color: { r: 62, g: 170, b: 95, a: 1 }, opacity: 0.48, visible: true };
+  const greenLeaf = {
+    face: { color: { r: 58, g: 128, b: 72, a: 1 }, opacity: 0.52, visible: true },
+    edge: { color: { r: 36, g: 96, b: 52, a: 1 }, width: 0.75, opacity: 0.72, visible: true },
+  };
+  const sunLeaf = {
+    face: { color: { r: 72, g: 138, b: 70, a: 1 }, opacity: 0.5, visible: true },
+    edge: { color: { r: 140, g: 72, b: 48, a: 1 }, width: 0.75, opacity: 0.7, visible: true },
+  };
 
-  // Terracotta-ish pot (~22 cm) with soil
+  // Ceramic pot ~20 cm Ø, plant total ~1 m with crown
   doc = add(
     doc,
     {
-      id: "mt-pot-base",
+      id: "jade-pot-rim",
       type: "plant",
       transform: t(0, 0, FLOOR_T),
-      geometry: { type: "cylinder", radius: 115, height: 28, radialSegments: 24 },
-      metadata: { name: "Pot Base" },
+      geometry: { type: "cylinder", radius: 108, height: 22, radialSegments: 28 },
+      metadata: { name: "Pot Rim" },
       style: potStyle,
     },
-    "money-tree",
+    rootId,
   );
   doc = add(
     doc,
     {
-      id: "mt-pot",
+      id: "jade-pot",
       type: "plant",
       transform: {
         ...identityTransform(),
-        position: [0, 0, FLOOR_T + 28],
-        scale: [1, 1, 1],
+        position: [0, 0, FLOOR_T + 18],
+        scale: [0.92, 0.92, 1],
       },
-      geometry: { type: "cylinder", radius: 100, height: 155, radialSegments: 24 },
+      geometry: { type: "cylinder", radius: 100, height: 160, radialSegments: 28 },
       metadata: { name: "Pot" },
       style: potStyle,
     },
-    "money-tree",
+    rootId,
   );
   doc = add(
     doc,
     {
-      id: "mt-soil",
+      id: "jade-soil",
       type: "plant",
-      transform: t(0, 0, FLOOR_T + 165),
-      geometry: { type: "cylinder", radius: 88, height: 22, radialSegments: 20 },
+      transform: t(0, 0, FLOOR_T + 168),
+      geometry: { type: "cylinder", radius: 82, height: 18, radialSegments: 20 },
       metadata: { name: "Soil" },
       style: soilStyle,
     },
-    "money-tree",
+    rootId,
   );
 
-  // Trunk: slight jogs, tapering (~70 cm wood above soil → ~1 m total with crown)
-  const trunk: Array<[number, number, number, number, number]> = [
-    [0, 0, 185, 22, 95],
-    [6, -3, 280, 20, 90],
-    [-5, 5, 370, 18, 85],
-    [4, -2, 455, 16, 80],
-    [-2, 3, 535, 14, 75],
-    [2, -1, 610, 12, 70],
-  ];
-  trunk.forEach(([x, y, z, r, h], i) => {
-    doc = add(
-      doc,
-      {
-        id: `mt-trunk-${i}`,
-        type: "plant",
-        transform: t(x, y, FLOOR_T + z),
-        geometry: { type: "cylinder", radius: r, height: h, radialSegments: 14 },
-        metadata: { name: `Trunk ${i + 1}` },
-        style: woodStyle,
-      },
-      "money-tree",
-    );
-  });
+  type Stem = {
+    id: string;
+    x: number;
+    y: number;
+    z: number;
+    yaw: number;
+    pitch: number;
+    radius: number;
+    length: number;
+    leafy: boolean;
+  };
 
-  // Forked branches (tilted cylinders)
-  const branches: Array<[number, number, number, number, number, number, number, number]> = [
-    // x, y, z, yaw, pitch, roll, radius, length
-    [8, 6, 680, 35, 28, 0, 7, 95],
-    [-10, -4, 700, -40, 32, 8, 6.5, 90],
-    [4, 12, 740, 10, 45, -6, 6, 80],
-    [14, -8, 760, 55, 38, 4, 5.5, 85],
-    [-12, 10, 780, -55, 42, -5, 5.5, 75],
-    [0, -2, 820, 0, 55, 0, 5, 70],
-    [10, 4, 850, 25, 48, 10, 4.5, 65],
-    [-8, -6, 860, -30, 50, -8, 4.5, 60],
+  // Dichotomous woody scaffold (mm): short thick trunk → forking shrub
+  const stems: Stem[] = [
+    { id: "jade-trunk-0", x: 0, y: 0, z: 175, yaw: 0, pitch: 0, radius: 28, length: 145, leafy: false },
+    { id: "jade-trunk-1", x: 3, y: -2, z: 315, yaw: 8, pitch: 4, radius: 24, length: 120, leafy: false },
+    { id: "jade-trunk-2", x: -2, y: 4, z: 430, yaw: -6, pitch: -3, radius: 20, length: 105, leafy: false },
+    // Primary forks
+    { id: "jade-fork-a", x: -18, y: 12, z: 525, yaw: -38, pitch: 22, radius: 14, length: 125, leafy: false },
+    { id: "jade-fork-b", x: 22, y: -8, z: 530, yaw: 42, pitch: 20, radius: 14, length: 130, leafy: false },
+    { id: "jade-fork-c", x: 4, y: 18, z: 540, yaw: 8, pitch: 32, radius: 12, length: 110, leafy: false },
+    // Secondary forks
+    { id: "jade-fork-a1", x: -48, y: 28, z: 620, yaw: -55, pitch: 28, radius: 9, length: 100, leafy: true },
+    { id: "jade-fork-a2", x: -28, y: 5, z: 630, yaw: -22, pitch: 35, radius: 9, length: 95, leafy: true },
+    { id: "jade-fork-b1", x: 52, y: -22, z: 625, yaw: 58, pitch: 26, radius: 9, length: 105, leafy: true },
+    { id: "jade-fork-b2", x: 30, y: 8, z: 635, yaw: 28, pitch: 34, radius: 9, length: 98, leafy: true },
+    { id: "jade-fork-c1", x: -8, y: 42, z: 625, yaw: -12, pitch: 40, radius: 8, length: 92, leafy: true },
+    { id: "jade-fork-c2", x: 18, y: 38, z: 630, yaw: 25, pitch: 38, radius: 8, length: 90, leafy: true },
+    // Tip twigs — crown reaches ~1 m above floor
+    { id: "jade-tip-0", x: -68, y: 38, z: 760, yaw: -62, pitch: 30, radius: 6, length: 80, leafy: true },
+    { id: "jade-tip-1", x: -40, y: -8, z: 770, yaw: -18, pitch: 42, radius: 6, length: 75, leafy: true },
+    { id: "jade-tip-2", x: 72, y: -30, z: 770, yaw: 65, pitch: 28, radius: 6, length: 82, leafy: true },
+    { id: "jade-tip-3", x: 42, y: 18, z: 775, yaw: 32, pitch: 40, radius: 6, length: 78, leafy: true },
+    { id: "jade-tip-4", x: -14, y: 58, z: 765, yaw: -20, pitch: 48, radius: 5.5, length: 72, leafy: true },
+    { id: "jade-tip-5", x: 28, y: 52, z: 770, yaw: 30, pitch: 46, radius: 5.5, length: 70, leafy: true },
+    { id: "jade-tip-6", x: 8, y: -15, z: 785, yaw: 5, pitch: 50, radius: 5, length: 68, leafy: true },
+    { id: "jade-tip-7", x: -55, y: 15, z: 755, yaw: -45, pitch: 36, radius: 5.5, length: 70, leafy: true },
   ];
-  branches.forEach(([x, y, z, yaw, pitch, roll, r, len], i) => {
+
+  for (const s of stems) {
     doc = add(
       doc,
       {
-        id: `mt-branch-${i}`,
+        id: s.id,
         type: "plant",
         transform: {
           ...identityTransform(),
-          position: [x, y, FLOOR_T + z],
-          rotation: quatFromEulerDeg(pitch, yaw, roll),
+          position: [s.x, s.y, FLOOR_T + s.z],
+          rotation: quatFromEulerDeg(s.pitch, s.yaw, 0),
         },
-        geometry: { type: "cylinder", radius: r, height: len, radialSegments: 10 },
-        metadata: { name: `Branch ${i + 1}` },
-        style: woodStyle,
+        geometry: { type: "cylinder", radius: s.radius, height: s.length, radialSegments: 12 },
+        metadata: { name: s.id.replace("jade-", "").replace(/-/g, " ") },
+        style: barkStyle,
       },
-      "money-tree",
+      rootId,
     );
-  });
+  }
 
-  // Fleshy oval leaves — flattened cylinders (scale Y thin) with tip pads
-  let leaf = 0;
-  const clusters: Array<[number, number, number, number]> = [
-    [55, 20, 730, 0.9],
-    [-48, -12, 750, 0.95],
-    [18, 58, 790, 1.0],
-    [68, -32, 810, 0.9],
-    [-38, 48, 830, 1.05],
-    [5, 5, 870, 1.1],
-    [40, 28, 890, 0.95],
-    [-42, -22, 910, 1.0],
-    [12, -48, 850, 0.9],
-    [-15, 18, 940, 1.05],
-    [28, -8, 960, 0.85],
-    [-22, 8, 980, 0.8],
-  ];
-  for (const [cx, cy, cz, scale] of clusters) {
-    const count = 8;
-    for (let i = 0; i < count; i++) {
-      const ang = (i / count) * Math.PI * 2 + cz * 0.01;
-      const radial = (28 + (i % 4) * 10) * scale;
-      const lx = cx + Math.cos(ang) * radial;
-      const ly = cy + Math.sin(ang) * radial;
-      const lz = FLOOR_T + cz + (i % 5) * 6 - 8;
-      const lean = 18 + (i % 6) * 7;
-      const yaw = (ang * 180) / Math.PI + (i % 3) * 8;
-      const leafW = (22 + (i % 3) * 4) * scale;
-      const leafL = (38 + (i % 4) * 5) * scale;
-      doc = add(
-        doc,
-        {
-          id: `mt-leaf-${leaf}`,
-          type: "plant",
-          transform: {
-            ...identityTransform(),
-            position: [lx, ly, lz],
-            rotation: quatFromEulerDeg(lean, yaw, (i % 3) * 10 - 10),
-            // Flatten cylinder into a thick oval leaf pad
-            scale: [leafW / 20, 0.28, leafL / 40],
-          },
-          geometry: { type: "cylinder", radius: 20, height: 40, radialSegments: 16 },
-          metadata: { name: `Leaf ${leaf + 1}` },
-          style: {
-            face: i % 3 === 0 ? leafTipFace : leafFace,
-            edge: leafEdge,
-          },
+  /**
+   * One fleshy obovate Crassula leaf: thick oval pad (wider toward tip),
+   * built from a short cylinder scaled into a succulent lens + a rounded tip cap.
+   */
+  let leafSeq = 0;
+  const addLeaf = (
+    bx: number,
+    by: number,
+    bz: number,
+    yaw: number,
+    pitch: number,
+    roll: number,
+    size: number,
+    sunned: boolean,
+  ) => {
+    const len = 32 + size * 14;
+    const wid = 20 + size * 9;
+    const thick = 5.5 + size * 2.2;
+    const style = sunned ? sunLeaf : greenLeaf;
+    const id = `jade-leaf-${leafSeq++}`;
+    // Main blade: cylinder along local Z, flattened on Y → thick oval leaf
+    doc = add(
+      doc,
+      {
+        id,
+        type: "plant",
+        transform: {
+          ...identityTransform(),
+          position: [bx, by, bz],
+          rotation: quatFromEulerDeg(pitch, yaw, roll),
+          scale: [wid / 24, thick / 24, len / 36],
         },
-        "money-tree",
-      );
-      leaf += 1;
+        geometry: { type: "cylinder", radius: 12, height: 36, radialSegments: 14 },
+        metadata: { name: `Leaf ${leafSeq}` },
+        style,
+      },
+      rootId,
+    );
+    // Rounded tip (slightly wider / redder edge on sun leaves)
+    const tipAlong = (len * 0.42) / 2;
+    const rad = (yaw * Math.PI) / 180;
+    const pit = (pitch * Math.PI) / 180;
+    const tipX = bx + Math.sin(rad) * Math.cos(pit) * tipAlong;
+    const tipY = by - Math.cos(rad) * Math.cos(pit) * tipAlong * 0.15;
+    const tipZ = bz + Math.sin(pit) * tipAlong + len * 0.28;
+    doc = add(
+      doc,
+      {
+        id: `${id}-tip`,
+        type: "plant",
+        transform: {
+          ...identityTransform(),
+          position: [tipX, tipY, tipZ],
+          rotation: quatFromEulerDeg(pitch + 6, yaw, roll),
+          scale: [(wid * 0.85) / 20, (thick * 0.9) / 20, (len * 0.35) / 20],
+        },
+        geometry: { type: "cylinder", radius: 10, height: 20, radialSegments: 12 },
+        metadata: { name: `Leaf Tip ${leafSeq}` },
+        style,
+      },
+      rootId,
+    );
+  };
 
-      // Smaller tip leaflet
-      if (i % 2 === 0) {
-        const tipR = radial + leafL * 0.35;
-        doc = add(
-          doc,
-          {
-            id: `mt-leaf-tip-${leaf}`,
-            type: "plant",
-            transform: {
-              ...identityTransform(),
-              position: [
-                cx + Math.cos(ang) * tipR,
-                cy + Math.sin(ang) * tipR,
-                lz + 4,
-              ],
-              rotation: quatFromEulerDeg(lean + 8, yaw, 0),
-              scale: [0.55, 0.22, 0.7],
-            },
-            geometry: { type: "cylinder", radius: 14, height: 28, radialSegments: 12 },
-            metadata: { name: `Leaf Tip ${leaf + 1}` },
-            style: { face: leafTipFace, edge: leafEdge },
-          },
-          "money-tree",
-        );
-        leaf += 1;
-      }
+  // Opposite leaf pairs along leafy stems (Crassula phyllotaxis)
+  for (const s of stems) {
+    if (!s.leafy) continue;
+    const pairs = s.length > 80 ? 4 : 3;
+    const yawRad = (s.yaw * Math.PI) / 180;
+    const pitchRad = (s.pitch * Math.PI) / 180;
+    const dirX = Math.sin(yawRad) * Math.cos(pitchRad);
+    const dirY = -Math.cos(yawRad) * Math.cos(pitchRad);
+    const dirZ = Math.sin(pitchRad);
+    // Perpendicular for opposite pair axis
+    const sideX = Math.cos(yawRad);
+    const sideY = Math.sin(yawRad);
+
+    for (let p = 0; p < pairs; p++) {
+      const tAlong = 0.28 + (p / Math.max(1, pairs - 1)) * 0.62;
+      const cx = s.x + dirX * s.length * tAlong;
+      const cy = s.y + dirY * s.length * tAlong * 0.35;
+      const cz = FLOOR_T + s.z + dirZ * s.length * tAlong + s.length * tAlong * 0.55;
+      const pairYaw = s.yaw + p * 55;
+      const spread = 14 + (1 - tAlong) * 6;
+      const size = 0.55 + tAlong * 0.7 + (p % 2) * 0.1;
+      const sunned = p + leafSeq * 0.1 > 2.5 && p % 3 === 0;
+
+      addLeaf(
+        cx + sideX * spread,
+        cy + sideY * spread,
+        cz,
+        pairYaw + 90,
+        55 + (p % 3) * 8,
+        12,
+        size,
+        sunned,
+      );
+      addLeaf(
+        cx - sideX * spread,
+        cy - sideY * spread,
+        cz + 2,
+        pairYaw - 90,
+        52 + (p % 3) * 8,
+        -10,
+        size * 0.95,
+        sunned,
+      );
+    }
+
+    // Dense tip rosette (typical of pruned Crassula)
+    const tipX = s.x + dirX * s.length * 0.95;
+    const tipY = s.y + dirY * s.length * 0.3;
+    const tipZ = FLOOR_T + s.z + s.length * 0.85;
+    for (let k = 0; k < 6; k++) {
+      const ang = (k / 6) * Math.PI * 2;
+      addLeaf(
+        tipX + Math.cos(ang) * 12,
+        tipY + Math.sin(ang) * 12,
+        tipZ + (k % 3) * 5,
+        s.yaw + (ang * 180) / Math.PI,
+        35 + (k % 4) * 10,
+        (k % 3) * 8 - 8,
+        0.7 + (k % 3) * 0.15,
+        k % 4 === 0,
+      );
     }
   }
 
@@ -698,7 +757,7 @@ export function createApartmentDocument(): PlanaDocument {
     "living",
   );
   doc = addShelving(doc, "living", 3.633, 2.605);
-  doc = addMoneyTree(doc, "living");
+  doc = addJadePlant(doc, "living");
 
   return doc;
 }
