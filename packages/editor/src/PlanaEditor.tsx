@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   addObject,
+  createBoxObject,
   createDocument,
   createId,
+  createWallObject,
   eulerDegFromQuat,
   identityTransform,
   quatFromEulerDeg,
@@ -24,6 +26,8 @@ export type PlanaEditorProps = {
   className?: string;
 };
 
+const HISTORY_LIMIT = 100;
+
 function objectName(object: PlanaObject) {
   return String(object.metadata?.name ?? object.id);
 }
@@ -40,6 +44,10 @@ function useIsMobile(breakpoint = 900) {
   return mobile;
 }
 
+function cloneDocument(document: PlanaDocument): PlanaDocument {
+  return structuredClone(document);
+}
+
 export function PlanaEditor({
   document: controlled,
   onChange,
@@ -47,10 +55,51 @@ export function PlanaEditor({
 }: PlanaEditorProps) {
   const [internal, setInternal] = useState<PlanaDocument>(() => controlled ?? createDocument());
   const document = controlled ?? internal;
-  const setDocument = (next: PlanaDocument) => {
+  const documentRef = useRef(document);
+  documentRef.current = document;
+
+  const pastRef = useRef<PlanaDocument[]>([]);
+  const futureRef = useRef<PlanaDocument[]>([]);
+  const [historyTick, setHistoryTick] = useState(0);
+
+  const publish = (next: PlanaDocument) => {
     if (onChange) onChange(next);
     else setInternal(next);
   };
+
+  const publishRef = useRef(publish);
+  publishRef.current = publish;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  /** Commit a user edit onto the undo stack. */
+  const commitDocument = (next: PlanaDocument) => {
+    pastRef.current.push(cloneDocument(documentRef.current));
+    if (pastRef.current.length > HISTORY_LIMIT) pastRef.current.shift();
+    futureRef.current = [];
+    publishRef.current(next);
+    setHistoryTick((n) => n + 1);
+  };
+
+  const undo = () => {
+    const prev = pastRef.current.pop();
+    if (!prev) return;
+    futureRef.current.push(cloneDocument(documentRef.current));
+    publishRef.current(prev);
+    setHistoryTick((n) => n + 1);
+  };
+
+  const redo = () => {
+    const next = futureRef.current.pop();
+    if (!next) return;
+    pastRef.current.push(cloneDocument(documentRef.current));
+    publishRef.current(next);
+    setHistoryTick((n) => n + 1);
+  };
+
+  const canUndo = pastRef.current.length > 0;
+  const canRedo = futureRef.current.length > 0;
+  void historyTick;
 
   const mobile = useIsMobile();
   const [leftOpen, setLeftOpen] = useState(true);
@@ -109,9 +158,9 @@ export function PlanaEditor({
   };
 
   const addPrimitive = (kind: "box" | "wall" | "cylinder" | "group") => {
-    const id = createId(kind);
     if (kind === "group") {
-      setDocument(
+      const id = createId("group");
+      commitDocument(
         addObject(document, {
           id,
           type: "group",
@@ -124,33 +173,14 @@ export function PlanaEditor({
       return;
     }
     if (kind === "wall") {
-      setDocument(
-        addObject(document, {
-          id,
-          type: "wall",
-          transform: identityTransform(),
-          geometry: {
-            type: "wall",
-            path: {
-              type: "polyline",
-              points: [
-                [0, 0, 0],
-                [2000, 0, 0],
-              ],
-              closed: false,
-            },
-            thickness: 150,
-            height: { start: 2700, end: 2700 },
-            baseZ: 0,
-          },
-          metadata: { name: id },
-        }),
-      );
-      setSelectedIds([id]);
+      const wall = createWallObject({ name: "Стена" });
+      commitDocument(addObject(document, wall));
+      setSelectedIds([wall.id]);
       return;
     }
     if (kind === "cylinder") {
-      setDocument(
+      const id = createId("cylinder");
+      commitDocument(
         addObject(document, {
           id,
           type: "object",
@@ -162,16 +192,9 @@ export function PlanaEditor({
       setSelectedIds([id]);
       return;
     }
-    setDocument(
-      addObject(document, {
-        id,
-        type: "object",
-        transform: { ...identityTransform(), position: [0, 0, 0] },
-        geometry: { type: "box", size: [1000, 1000, 1000] },
-        metadata: { name: id },
-      }),
-    );
-    setSelectedIds([id]);
+    const box = createBoxObject();
+    commitDocument(addObject(document, box));
+    setSelectedIds([box.id]);
   };
 
   const selectObject = (id?: ObjectId) => {
@@ -179,14 +202,16 @@ export function PlanaEditor({
   };
 
   const deleteSelected = () => {
-    if (!selectedId || selectedId === document.root) return;
-    setDocument(removeObject(document, selectedId));
+    const doc = documentRef.current;
+    const id = selectedId;
+    if (!id || id === doc.root) return;
+    commitDocument(removeObject(doc, id));
     setSelectedIds([]);
   };
 
   const importFile = async (file: File) => {
     const text = await file.text();
-    setDocument(deserialize(text));
+    commitDocument(deserialize(text));
     setSelectedIds([]);
   };
 
@@ -195,6 +220,46 @@ export function PlanaEditor({
     setRightOpen(false);
     setMenuOpen(false);
   };
+
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+      if (typing) return;
+
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && event.key.toLowerCase() === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+        return;
+      }
+      if (
+        mod &&
+        (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey))
+      ) {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        const id = selectedIdRef.current;
+        const doc = documentRef.current;
+        if (!id || id === doc.root) return;
+        event.preventDefault();
+        commitDocument(removeObject(doc, id));
+        setSelectedIds([]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const euler = selected ? eulerDegFromQuat(selected.transform.rotation) : [0, 0, 0];
 
@@ -211,6 +276,7 @@ export function PlanaEditor({
       </button>
       <button
         type="button"
+        title="Предустановленный тип: стена"
         onClick={() => {
           addPrimitive("wall");
           setMenuOpen(false);
@@ -237,10 +303,17 @@ export function PlanaEditor({
         Group
       </button>
       <div className="plana-sep" />
+      <button type="button" disabled={!canUndo} title="Undo (Ctrl+Z)" onClick={() => undo()}>
+        Undo
+      </button>
+      <button type="button" disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onClick={() => redo()}>
+        Redo
+      </button>
       <button
         type="button"
         className="plana-btn-danger"
         disabled={!selectedId || selectedId === document.root}
+        title="Delete (Del)"
         onClick={() => {
           deleteSelected();
           setMenuOpen(false);
@@ -398,7 +471,9 @@ export function PlanaEditor({
             onSelect={selectObject}
           />
           <div className="plana-hint">
-            <span className="plana-hint-desktop">Orbit · pan · zoom · click to select</span>
+            <span className="plana-hint-desktop">
+              Orbit · pan · zoom · click · Ctrl+Z / Ctrl+Shift+Z · Del
+            </span>
             <span className="plana-hint-mobile">1 finger orbit · pinch zoom · tap select</span>
           </div>
         </main>
@@ -420,7 +495,7 @@ export function PlanaEditor({
                   <input
                     value={objectName(selected)}
                     onChange={(event) =>
-                      setDocument(
+                      commitDocument(
                         updateObject(document, selected.id, {
                           metadata: { ...selected.metadata, name: event.target.value },
                         }),
@@ -433,7 +508,7 @@ export function PlanaEditor({
                   <input
                     value={selected.type}
                     onChange={(event) =>
-                      setDocument(
+                      commitDocument(
                         updateObject(document, selected.id, {
                           type: event.target.value || "object",
                         }),
@@ -457,7 +532,7 @@ export function PlanaEditor({
                             number,
                           ];
                           position[index] = Number(event.target.value);
-                          setDocument(
+                          commitDocument(
                             updateObject(document, selected.id, {
                               transform: { ...selected.transform, position },
                             }),
@@ -479,7 +554,7 @@ export function PlanaEditor({
                         onChange={(event) => {
                           const next = [...euler] as [number, number, number];
                           next[index] = Number(event.target.value);
-                          setDocument(
+                          commitDocument(
                             updateObject(document, selected.id, {
                               transform: {
                                 ...selected.transform,
@@ -509,7 +584,7 @@ export function PlanaEditor({
                               onChange={(event) => {
                                 const size = [...geo.size] as [number, number, number];
                                 size[index] = Number(event.target.value);
-                                setDocument(
+                                commitDocument(
                                   updateObject(document, selected.id, {
                                     geometry: { type: "box", size },
                                   }),
@@ -519,6 +594,74 @@ export function PlanaEditor({
                           </label>
                         );
                       })}
+                    </div>
+                  </>
+                )}
+                {selected.geometry?.type === "wall" && (
+                  <>
+                    <div className="plana-section-label">Wall (mm)</div>
+                    <div className="plana-grid3">
+                      <label>
+                        Thick
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={Math.round(selected.geometry.thickness)}
+                          onChange={(event) => {
+                            const geo = selected.geometry;
+                            if (geo?.type !== "wall") return;
+                            commitDocument(
+                              updateObject(document, selected.id, {
+                                geometry: {
+                                  ...geo,
+                                  thickness: Number(event.target.value),
+                                },
+                              }),
+                            );
+                          }}
+                        />
+                      </label>
+                      <label>
+                        Height
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={Math.round(selected.geometry.height.start)}
+                          onChange={(event) => {
+                            const geo = selected.geometry;
+                            if (geo?.type !== "wall") return;
+                            const h = Number(event.target.value);
+                            commitDocument(
+                              updateObject(document, selected.id, {
+                                geometry: {
+                                  ...geo,
+                                  height: { start: h, end: h },
+                                },
+                              }),
+                            );
+                          }}
+                        />
+                      </label>
+                      <label>
+                        Base Z
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={Math.round(selected.geometry.baseZ)}
+                          onChange={(event) => {
+                            const geo = selected.geometry;
+                            if (geo?.type !== "wall") return;
+                            commitDocument(
+                              updateObject(document, selected.id, {
+                                geometry: {
+                                  ...geo,
+                                  baseZ: Number(event.target.value),
+                                },
+                              }),
+                            );
+                          }}
+                        />
+                      </label>
                     </div>
                   </>
                 )}

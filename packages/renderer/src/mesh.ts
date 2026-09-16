@@ -7,6 +7,13 @@ export type RenderMesh = {
   edges?: Float32Array;
 };
 
+export type WallMeshOptions = {
+  /** Hide vertical end-cap edges at path start (junction with another wall). */
+  hideStartCap?: boolean;
+  /** Hide vertical end-cap edges at path end. */
+  hideEndCap?: boolean;
+};
+
 const MM = 0.001;
 
 function pushBox(
@@ -89,14 +96,33 @@ function sampleArc(wall: Extract<WallGeometry["path"], { type: "arc" }>, segment
   return points;
 }
 
-function buildWallMesh(wall: WallGeometry): RenderMesh {
+type CapKind = "long" | "start" | "end";
+
+function pushEdge(
+  edges: number[],
+  kinds: CapKind[],
+  pa: [number, number, number],
+  pb: [number, number, number],
+  kind: CapKind,
+) {
+  edges.push(pa[0], pa[1], pa[2], pb[0], pb[1], pb[2]);
+  kinds.push(kind);
+}
+
+/**
+ * Wall solid + edges. End-cap edges at junctions can be omitted so crossing
+ * walls read as continuous; callers pass hideStartCap/hideEndCap.
+ */
+export function buildWallMesh(wall: WallGeometry, options: WallMeshOptions = {}): RenderMesh {
   const positions: number[] = [];
   const normals: number[] = [];
   const indices: number[] = [];
   const edges: number[] = [];
+  const kinds: CapKind[] = [];
 
   const pathPoints =
     wall.path.type === "polyline" ? wall.path.points : sampleArc(wall.path);
+  const lastSeg = Math.max(0, pathPoints.length - 2);
 
   for (let i = 0; i < pathPoints.length - 1; i += 1) {
     const a = pathPoints[i];
@@ -151,36 +177,57 @@ function buildWallMesh(wall: WallGeometry): RenderMesh {
     for (const f of faces) {
       indices.push(base + f[0], base + f[1], base + f[2], base + f[0], base + f[2], base + f[3]);
     }
-    const edgePairs = [
-      [0, 1],
-      [1, 2],
-      [2, 3],
-      [3, 0],
-      [4, 5],
-      [5, 6],
-      [6, 7],
-      [7, 4],
-      [0, 4],
-      [1, 5],
-      [2, 6],
-      [3, 7],
-    ];
-    for (const [ea, eb] of edgePairs) {
-      const pa = world[ea];
-      const pb = world[eb];
-      edges.push(pa[0], pa[1], pa[2], pb[0], pb[1], pb[2]);
-    }
+
+    const isFirst = i === 0;
+    const isLast = i === lastSeg;
+
+    // Longitudinal face edges (always keep).
+    pushEdge(edges, kinds, world[0], world[1], "long");
+    pushEdge(edges, kinds, world[3], world[2], "long");
+    pushEdge(edges, kinds, world[4], world[5], "long");
+    pushEdge(edges, kinds, world[7], world[6], "long");
+
+    // Start-cap ring (local -hx).
+    pushEdge(edges, kinds, world[0], world[3], isFirst ? "start" : "long");
+    pushEdge(edges, kinds, world[3], world[7], isFirst ? "start" : "long");
+    pushEdge(edges, kinds, world[7], world[4], isFirst ? "start" : "long");
+    pushEdge(edges, kinds, world[4], world[0], isFirst ? "start" : "long");
+
+    // End-cap ring (local +hx).
+    pushEdge(edges, kinds, world[1], world[2], isLast ? "end" : "long");
+    pushEdge(edges, kinds, world[2], world[6], isLast ? "end" : "long");
+    pushEdge(edges, kinds, world[6], world[5], isLast ? "end" : "long");
+    pushEdge(edges, kinds, world[5], world[1], isLast ? "end" : "long");
+  }
+
+  const filtered: number[] = [];
+  for (let i = 0; i < kinds.length; i += 1) {
+    const kind = kinds[i];
+    if (kind === "start" && options.hideStartCap) continue;
+    if (kind === "end" && options.hideEndCap) continue;
+    const o = i * 6;
+    filtered.push(
+      edges[o],
+      edges[o + 1],
+      edges[o + 2],
+      edges[o + 3],
+      edges[o + 4],
+      edges[o + 5],
+    );
   }
 
   return {
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
     indices: new Uint32Array(indices),
-    edges: new Float32Array(edges),
+    edges: new Float32Array(filtered),
   };
 }
 
-export function buildRenderMesh(geometry: Geometry): RenderMesh | null {
+export function buildRenderMesh(
+  geometry: Geometry,
+  options?: WallMeshOptions,
+): RenderMesh | null {
   if (geometry.type === "box") {
     const positions: number[] = [];
     const normals: number[] = [];
@@ -203,7 +250,6 @@ export function buildRenderMesh(geometry: Geometry): RenderMesh | null {
     const segments = geometry.radialSegments ?? 16;
     const r = geometry.radius * MM;
     const h = geometry.height * MM;
-    const base = 0;
     for (let i = 0; i < segments; i += 1) {
       const a0 = (i / segments) * Math.PI * 2;
       const a1 = ((i + 1) / segments) * Math.PI * 2;
@@ -217,7 +263,6 @@ export function buildRenderMesh(geometry: Geometry): RenderMesh | null {
       indices.push(bi, bi + 1, bi + 2, bi, bi + 2, bi + 3);
       edges.push(x0, y0, 0, x1, y1, 0, x0, y0, h, x1, y1, h, x0, y0, 0, x0, y0, h);
     }
-    void base;
     return {
       positions: new Float32Array(positions),
       normals: new Float32Array(normals),
@@ -226,7 +271,7 @@ export function buildRenderMesh(geometry: Geometry): RenderMesh | null {
     };
   }
 
-  if (geometry.type === "wall") return buildWallMesh(geometry);
+  if (geometry.type === "wall") return buildWallMesh(geometry, options);
 
   return null;
 }

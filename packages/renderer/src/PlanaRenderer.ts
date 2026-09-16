@@ -1,13 +1,16 @@
 import {
+  type Color,
   type ObjectId,
   type PlanaDocument,
   type PlanaObject,
   resolveObjectStyle,
+  selectionEdgeColor,
 } from "@plana/core";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import { WORLD_FROM_MM, buildRenderMesh } from "./mesh.js";
+import { WORLD_FROM_MM, buildRenderMesh, type WallMeshOptions } from "./mesh.js";
+import { collectWallSegments, computeWallEndCapHiding, type WallEndCaps } from "./walls.js";
 
 export type RendererSelection = {
   selectedIds: ObjectId[];
@@ -26,8 +29,10 @@ function colorFromRgba(color: { r: number; g: number; b: number }) {
   return new THREE.Color(color.r / 255, color.g / 255, color.b / 255);
 }
 
-function geometryKey(object: PlanaObject): string {
-  return object.geometry ? JSON.stringify(object.geometry) : "";
+function geometryKey(object: PlanaObject, wallOpts?: WallMeshOptions): string {
+  const base = object.geometry ? JSON.stringify(object.geometry) : "";
+  if (!wallOpts) return base;
+  return `${base}|s${wallOpts.hideStartCap ? 1 : 0}|e${wallOpts.hideEndCap ? 1 : 0}`;
 }
 
 export class PlanaRenderer {
@@ -45,6 +50,7 @@ export class PlanaRenderer {
   private selection: RendererSelection = { selectedIds: [] };
   private onSelect?: (id?: ObjectId) => void;
   private document: PlanaDocument | null = null;
+  private wallCaps = new Map<string, WallEndCaps>();
 
   private pointerDown: { x: number; y: number } | null = null;
 
@@ -88,12 +94,25 @@ export class PlanaRenderer {
   }
 
   setSelection(selection: RendererSelection) {
+    const prev = this.selection.selectedIds;
     this.selection = selection;
-    if (this.document) this.syncStyles(this.document);
+    if (!this.document) return;
+    // Wall edge topology depends on selection (junction caps vs full bounds).
+    const touched = new Set([...prev, ...selection.selectedIds]);
+    for (const id of touched) {
+      const object = this.document.objects[id];
+      const runtime = this.runtimes.get(id);
+      if (!object || !runtime || object.type !== "wall") continue;
+      this.disposeRuntimeMeshes(runtime);
+      this.rebuildMeshes(runtime, object);
+      runtime.geometryKey = geometryKey(object, this.wallMeshOptions(object.id));
+    }
+    this.syncStyles(this.document);
   }
 
   setDocument(document: PlanaDocument) {
     this.document = document;
+    this.wallCaps = computeWallEndCapHiding(collectWallSegments(document));
     const keep = new Set<ObjectId>();
 
     const visit = (id: ObjectId, parent: THREE.Object3D) => {
@@ -102,7 +121,7 @@ export class PlanaRenderer {
       keep.add(id);
 
       let runtime = this.runtimes.get(id);
-      const key = geometryKey(object);
+      const key = geometryKey(object, this.wallMeshOptions(id));
       if (!runtime) {
         runtime = this.createRuntime(object);
         this.runtimes.set(id, runtime);
@@ -114,7 +133,7 @@ export class PlanaRenderer {
 
       if (runtime.group.parent !== parent) parent.add(runtime.group);
       this.applyTransform(runtime.group, object);
-      this.applyStyle(runtime, object);
+      this.applyStyle(runtime, object, document);
 
       for (const childId of object.children ?? []) visit(childId, runtime.group);
     };
@@ -137,6 +156,15 @@ export class PlanaRenderer {
     this.webgl.setSize(w, h, false);
   }
 
+  private wallMeshOptions(id: ObjectId): WallMeshOptions | undefined {
+    if (!this.document?.objects[id] || this.document.objects[id].type !== "wall") return undefined;
+    const selected = this.selection.selectedIds.includes(id);
+    if (selected) return { hideStartCap: false, hideEndCap: false };
+    const caps = this.wallCaps.get(id);
+    if (!caps) return { hideStartCap: false, hideEndCap: false };
+    return { hideStartCap: caps.hideStart, hideEndCap: caps.hideEnd };
+  }
+
   private createRuntime(object: PlanaObject): ObjectRuntime {
     const group = new THREE.Group();
     group.name = object.id;
@@ -144,7 +172,7 @@ export class PlanaRenderer {
     const runtime: ObjectRuntime = {
       objectId: object.id,
       group,
-      geometryKey: geometryKey(object),
+      geometryKey: geometryKey(object, this.wallMeshOptions(object.id)),
     };
     this.rebuildMeshes(runtime, object);
     return runtime;
@@ -152,7 +180,7 @@ export class PlanaRenderer {
 
   private rebuildMeshes(runtime: ObjectRuntime, object: PlanaObject) {
     if (!object.geometry) return;
-    const mesh = buildRenderMesh(object.geometry);
+    const mesh = buildRenderMesh(object.geometry, this.wallMeshOptions(object.id));
     if (!mesh) return;
 
     const geometry = new THREE.BufferGeometry();
@@ -195,7 +223,19 @@ export class PlanaRenderer {
     group.scale.set(sx, sy, sz);
   }
 
-  private applyStyle(runtime: ObjectRuntime, object: PlanaObject) {
+  private nearbyEdgeColors(document: PlanaDocument, objectId: ObjectId): Color[] {
+    const colors: Color[] = [];
+    for (const [id, object] of Object.entries(document.objects)) {
+      if (id === objectId || id === document.root) continue;
+      if (!object.geometry) continue;
+      const style = resolveObjectStyle(object.type, object.style);
+      if (style.edge?.color) colors.push(style.edge.color);
+      if (colors.length >= 24) break;
+    }
+    return colors;
+  }
+
+  private applyStyle(runtime: ObjectRuntime, object: PlanaObject, document: PlanaDocument) {
     const selected = this.selection.selectedIds.includes(object.id);
     const style = resolveObjectStyle(object.type, object.style);
 
@@ -207,7 +247,6 @@ export class PlanaRenderer {
       mat.transparent = true;
       mat.depthWrite = false;
       mat.colorWrite = opacity > 0.001;
-      // keep mesh raycastable even when fully transparent (walls)
       runtime.face.visible = true;
       runtime.face.raycast =
         opacity > 0.001 || object.type === "wall"
@@ -217,17 +256,25 @@ export class PlanaRenderer {
 
     if (runtime.edge && style.edge) {
       const mat = runtime.edge.material as THREE.LineBasicMaterial;
-      mat.color = selected ? new THREE.Color("#93c5fd") : colorFromRgba(style.edge.color);
+      if (selected) {
+        const accent = selectionEdgeColor(style.edge.color, this.nearbyEdgeColors(document, object.id));
+        mat.color = colorFromRgba(accent);
+        mat.linewidth = Math.max(style.edge.width, 1.6);
+      } else {
+        mat.color = colorFromRgba(style.edge.color);
+      }
       mat.opacity = style.edge.opacity;
       mat.visible = style.edge.visible;
       runtime.edge.visible = style.edge.visible;
+      // Selected walls draw on top so overlapping bounds stay readable.
+      runtime.edge.renderOrder = selected ? 10 : 0;
     }
   }
 
   private syncStyles(document: PlanaDocument) {
     for (const [id, runtime] of this.runtimes) {
       const object = document.objects[id];
-      if (object) this.applyStyle(runtime, object);
+      if (object) this.applyStyle(runtime, object, document);
     }
   }
 
@@ -259,7 +306,7 @@ export class PlanaRenderer {
     const dx = event.clientX - this.pointerDown.x;
     const dy = event.clientY - this.pointerDown.y;
     this.pointerDown = null;
-    if (dx * dx + dy * dy > 25) return; // drag / orbit — do not select
+    if (dx * dx + dy * dy > 25) return;
 
     const rect = this.webgl.domElement.getBoundingClientRect();
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
