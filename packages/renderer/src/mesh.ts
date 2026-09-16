@@ -710,6 +710,313 @@ export function buildFloorMesh(floor: FloorGeometry): RenderMesh {
   return toMesh(buf);
 }
 
+function catmullRom1(p0: number, p1: number, p2: number, p3: number, t: number): number {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+}
+
+function catmullRom3(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number): Vec3 {
+  return [
+    catmullRom1(p0[0], p1[0], p2[0], p3[0], t),
+    catmullRom1(p0[1], p1[1], p2[1], p3[1], t),
+    catmullRom1(p0[2], p1[2], p2[2], p3[2], t),
+  ];
+}
+
+function sampleCatmullRom(points: Vec3[], samples: number): Vec3[] {
+  const n = points.length;
+  if (n === 0) return [];
+  if (n === 1) return [points[0]];
+  const out: Vec3[] = [];
+  for (let i = 0; i <= samples; i += 1) {
+    const f = (i / samples) * (n - 1);
+    const seg = Math.min(n - 2, Math.floor(f));
+    const t = f - seg;
+    const p0 = points[Math.max(0, seg - 1)];
+    const p1 = points[seg];
+    const p2 = points[seg + 1];
+    const p3 = points[Math.min(n - 1, seg + 2)];
+    out.push(catmullRom3(p0, p1, p2, p3, t));
+  }
+  return out;
+}
+
+function lerpRadius(radius: number | number[], t: number): number {
+  if (typeof radius === "number") return radius;
+  if (radius.length === 1) return radius[0];
+  const f = t * (radius.length - 1);
+  const i = Math.min(radius.length - 2, Math.floor(f));
+  const u = f - i;
+  return radius[i] * (1 - u) + radius[i + 1] * u;
+}
+
+function rotateAroundAxis(v: Vec3, axis: Vec3, angle: number): Vec3 {
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const d = v[0] * axis[0] + v[1] * axis[1] + v[2] * axis[2];
+  const cxv = cross(axis, v);
+  return [
+    v[0] * c + cxv[0] * s + axis[0] * d * (1 - c),
+    v[1] * c + cxv[1] * s + axis[1] * d * (1 - c),
+    v[2] * c + cxv[2] * s + axis[2] * d * (1 - c),
+  ];
+}
+
+function bishopFrames(samples: Vec3[]): Array<{ t: Vec3; n: Vec3; b: Vec3 }> {
+  const tangents: Vec3[] = samples.map((_, i) => {
+    if (i === 0) return normalize3([samples[1][0] - samples[0][0], samples[1][1] - samples[0][1], samples[1][2] - samples[0][2]]);
+    if (i === samples.length - 1) {
+      const a = samples[i - 1];
+      const b = samples[i];
+      return normalize3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]);
+    }
+    const a = samples[i - 1];
+    const b = samples[i + 1];
+    return normalize3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]);
+  });
+  const t0 = tangents[0];
+  const helper: Vec3 = Math.abs(t0[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  let n = normalize3(cross(helper, t0));
+  const frames: Array<{ t: Vec3; n: Vec3; b: Vec3 }> = [];
+  for (let i = 0; i < samples.length; i += 1) {
+    const t = tangents[i];
+    if (i > 0) {
+      const prev = tangents[i - 1];
+      const axisRaw = cross(prev, t);
+      const axisLen = Math.hypot(axisRaw[0], axisRaw[1], axisRaw[2]);
+      if (axisLen > 1e-8) {
+        const axis = normalize3(axisRaw);
+        const angle = Math.acos(Math.max(-1, Math.min(1, prev[0] * t[0] + prev[1] * t[1] + prev[2] * t[2])));
+        n = rotateAroundAxis(n, axis, angle);
+      }
+      const d = n[0] * t[0] + n[1] * t[1] + n[2] * t[2];
+      n = normalize3([n[0] - t[0] * d, n[1] - t[1] * d, n[2] - t[2] * d]);
+      if (Math.hypot(n[0], n[1], n[2]) < 1e-8) {
+        const h: Vec3 = Math.abs(t[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+        n = normalize3(cross(h, t));
+      }
+    }
+    frames.push({ t, n, b: cross(t, n) });
+  }
+  return frames;
+}
+
+export function buildLatheMesh(geometry: Extract<Geometry, { type: "lathe" }>): RenderMesh {
+  const buf = emptyBuffers();
+  const profile = geometry.profile.map(([r, z]) => [Math.max(r, 0.05), z] as [number, number]);
+  const segs = geometry.segments ?? 32;
+  const rings = profile.length;
+  const base = buf.positions.length / 3;
+
+  for (let i = 0; i < rings; i += 1) {
+    const [r, z] = profile[i];
+    for (let j = 0; j <= segs; j += 1) {
+      const a = (j / segs) * Math.PI * 2;
+      const x = Math.cos(a) * r * MM;
+      const y = Math.sin(a) * r * MM;
+      buf.positions.push(x, y, z * MM);
+      const nl = Math.hypot(x, y) || 1;
+      buf.normals.push(x / nl, y / nl, 0);
+    }
+  }
+
+  const stride = segs + 1;
+  for (let i = 0; i < rings - 1; i += 1) {
+    for (let j = 0; j < segs; j += 1) {
+      const a = base + i * stride + j;
+      const b = a + 1;
+      const c = a + stride;
+      const d = c + 1;
+      buf.indices.push(a, c, d, a, d, b);
+    }
+  }
+
+  const meridians = 6;
+  for (let m = 0; m < meridians; m += 1) {
+    const j = Math.round((m / meridians) * segs);
+    for (let i = 0; i < rings - 1; i += 1) {
+      const a = i * stride + j;
+      const b = (i + 1) * stride + j;
+      pushEdge(
+        buf,
+        [buf.positions[a * 3], buf.positions[a * 3 + 1], buf.positions[a * 3 + 2]],
+        [buf.positions[b * 3], buf.positions[b * 3 + 1], buf.positions[b * 3 + 2]],
+        "long",
+      );
+    }
+  }
+  for (const ring of [0, rings - 1]) {
+    for (let j = 0; j < segs; j += 1) {
+      const a = ring * stride + j;
+      const b = ring * stride + j + 1;
+      pushEdge(
+        buf,
+        [buf.positions[a * 3], buf.positions[a * 3 + 1], buf.positions[a * 3 + 2]],
+        [buf.positions[b * 3], buf.positions[b * 3 + 1], buf.positions[b * 3 + 2]],
+        "long",
+      );
+    }
+  }
+  return toMesh(buf);
+}
+
+export function buildTubeMesh(geometry: Extract<Geometry, { type: "tube" }>): RenderMesh {
+  const buf = emptyBuffers();
+  const pts = geometry.points;
+  if (pts.length < 2) return toMesh(buf);
+  const radial = geometry.radialSegments ?? 12;
+  const tubular = geometry.tubularSegments ?? Math.max(12, (pts.length - 1) * 8);
+  const samples = sampleCatmullRom(pts, tubular);
+  if (samples.length < 2) return toMesh(buf);
+  const frames = bishopFrames(samples);
+  const rings = samples.length;
+  const capped = geometry.capped !== false;
+
+  for (let i = 0; i < rings; i += 1) {
+    const t = i / (rings - 1);
+    const r = lerpRadius(geometry.radius, t) * MM;
+    const p = samples[i];
+    const { n, b } = frames[i];
+    for (let j = 0; j <= radial; j += 1) {
+      const a = (j / radial) * Math.PI * 2;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const nx = n[0] * ca + b[0] * sa;
+      const ny = n[1] * ca + b[1] * sa;
+      const nz = n[2] * ca + b[2] * sa;
+      buf.positions.push(p[0] * MM + nx * r, p[1] * MM + ny * r, p[2] * MM + nz * r);
+      buf.normals.push(nx, ny, nz);
+    }
+  }
+
+  const stride = radial + 1;
+  for (let i = 0; i < rings - 1; i += 1) {
+    for (let j = 0; j < radial; j += 1) {
+      const a = i * stride + j;
+      const b = a + 1;
+      const c = a + stride;
+      const d = c + 1;
+      buf.indices.push(a, c, d, a, d, b);
+    }
+  }
+
+  if (capped) {
+    for (const end of [0, rings - 1] as const) {
+      const center = buf.positions.length / 3;
+      const p = samples[end];
+      const tang = frames[end].t;
+      const sign = end === 0 ? -1 : 1;
+      buf.positions.push(p[0] * MM, p[1] * MM, p[2] * MM);
+      buf.normals.push(tang[0] * sign, tang[1] * sign, tang[2] * sign);
+      const ringStart = end * stride;
+      for (let j = 0; j < radial; j += 1) {
+        const a = ringStart + j;
+        const b = ringStart + j + 1;
+        if (end === 0) buf.indices.push(center, b, a);
+        else buf.indices.push(center, a, b);
+      }
+    }
+  }
+
+  const meridians = 4;
+  for (let m = 0; m < meridians; m += 1) {
+    const j = Math.round((m / meridians) * radial);
+    for (let i = 0; i < rings - 1; i += 1) {
+      const a = i * stride + j;
+      const b = (i + 1) * stride + j;
+      pushEdge(
+        buf,
+        [buf.positions[a * 3], buf.positions[a * 3 + 1], buf.positions[a * 3 + 2]],
+        [buf.positions[b * 3], buf.positions[b * 3 + 1], buf.positions[b * 3 + 2]],
+        "long",
+      );
+    }
+  }
+  for (const ring of [0, rings - 1]) {
+    for (let j = 0; j < radial; j += 1) {
+      const a = ring * stride + j;
+      const b = ring * stride + j + 1;
+      pushEdge(
+        buf,
+        [buf.positions[a * 3], buf.positions[a * 3 + 1], buf.positions[a * 3 + 2]],
+        [buf.positions[b * 3], buf.positions[b * 3 + 1], buf.positions[b * 3 + 2]],
+        "long",
+      );
+    }
+  }
+  return toMesh(buf);
+}
+
+function leafPoint(
+  u: number,
+  v: number,
+  length: number,
+  width: number,
+  thickness: number,
+  cup: number,
+): Vec3 {
+  const envelope = Math.sin(Math.PI * Math.pow(Math.min(1, Math.max(0, u)), 0.78));
+  const half = (width / 2) * envelope;
+  const arch = cup * width * (1 - v * v) * Math.sin(Math.PI * u);
+  return [v * half * MM, (arch + thickness * 0.5) * MM, u * length * MM];
+}
+
+export function buildLeafMesh(geometry: Extract<Geometry, { type: "leaf" }>): RenderMesh {
+  const buf = emptyBuffers();
+  const nu = geometry.segments ?? 8;
+  const nv = Math.max(4, nu - 2);
+  const cup = geometry.cup ?? 0.35;
+  const top: number[][] = [];
+  const bot: number[][] = [];
+
+  for (let i = 0; i <= nu; i += 1) {
+    const u = i / nu;
+    const topRow: number[] = [];
+    const botRow: number[] = [];
+    for (let j = 0; j <= nv; j += 1) {
+      const v = -1 + (2 * j) / nv;
+      const p = leafPoint(u, v, geometry.length, geometry.width, geometry.thickness, cup);
+      const q = leafPoint(u, v, geometry.length, geometry.width, -geometry.thickness, cup);
+      topRow.push(buf.positions.length / 3);
+      buf.positions.push(p[0], p[1], p[2]);
+      buf.normals.push(0, 1, 0);
+      botRow.push(buf.positions.length / 3);
+      buf.positions.push(q[0], q[1], q[2]);
+      buf.normals.push(0, -1, 0);
+    }
+    top.push(topRow);
+    bot.push(botRow);
+  }
+
+  for (let i = 0; i < nu; i += 1) {
+    for (let j = 0; j < nv; j += 1) {
+      const a = top[i][j];
+      const b = top[i][j + 1];
+      const c = top[i + 1][j + 1];
+      const d = top[i + 1][j];
+      buf.indices.push(a, b, c, a, c, d);
+      const a2 = bot[i][j];
+      const b2 = bot[i][j + 1];
+      const c2 = bot[i + 1][j + 1];
+      const d2 = bot[i + 1][j];
+      buf.indices.push(a2, d2, c2, a2, c2, b2);
+    }
+  }
+
+  const outline: Vec3[] = [];
+  for (let i = 0; i <= nu; i += 1) {
+    const idx = top[i][nv];
+    outline.push([buf.positions[idx * 3], buf.positions[idx * 3 + 1], buf.positions[idx * 3 + 2]]);
+  }
+  for (let i = nu; i >= 0; i -= 1) {
+    const idx = top[i][0];
+    outline.push([buf.positions[idx * 3], buf.positions[idx * 3 + 1], buf.positions[idx * 3 + 2]]);
+  }
+  for (let i = 0; i < outline.length - 1; i += 1) pushEdge(buf, outline[i], outline[i + 1], "long");
+  return toMesh(buf);
+}
+
 export function buildRenderMesh(
   geometry: Geometry,
   options?: WallMeshOptions,
@@ -746,6 +1053,9 @@ export function buildRenderMesh(
   if (geometry.type === "wall") return buildWallMesh(geometry, options);
   if (geometry.type === "floor") return buildFloorMesh(geometry);
   if (geometry.type === "extrusion") return buildExtrusionMesh(geometry);
+  if (geometry.type === "lathe") return buildLatheMesh(geometry);
+  if (geometry.type === "tube") return buildTubeMesh(geometry);
+  if (geometry.type === "leaf") return buildLeafMesh(geometry);
 
   return null;
 }
