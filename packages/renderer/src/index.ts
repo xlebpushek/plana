@@ -1,6 +1,9 @@
 export {
   buildFloorMesh,
+  buildLatheMesh,
+  buildLeafMesh,
   buildRenderMesh,
+  buildTubeMesh,
   buildWallMesh,
   WORLD_FROM_MM,
 } from "./mesh.js";

@@ -13,6 +13,9 @@ import {
   CylinderGeometrySchema,
   ExtrusionGeometrySchema,
   FloorGeometrySchema,
+  LatheGeometrySchema,
+  LeafGeometrySchema,
+  TubeGeometrySchema,
   WallGeometrySchema,
 } from "./solids.js";
 
@@ -29,6 +32,9 @@ export const GeometrySchema = z.discriminatedUnion("type", [
   ExtrusionGeometrySchema,
   WallGeometrySchema,
   FloorGeometrySchema,
+  LatheGeometrySchema,
+  TubeGeometrySchema,
+  LeafGeometrySchema,
 ]);
 
 export type Geometry = z.infer<typeof GeometrySchema>;
