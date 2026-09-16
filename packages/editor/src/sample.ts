@@ -390,8 +390,8 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
       type: "group",
       transform: {
         ...identityTransform(),
-        position: [0.58 * MM, 5.32 * MM, 0],
-        rotation: quatFromEulerDeg(0, 0, 225),
+        position: [5.15 * MM, 4.8 * MM, 0],
+        rotation: quatFromEulerDeg(0, 0, 200),
       },
       children: [],
       metadata: { name: "Indoor Tree" },
@@ -400,29 +400,29 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
   );
 
   const white = {
-    face: { color: { r: 250, g: 250, b: 248, a: 1 }, opacity: 0.5, visible: true },
-    edge: { color: { r: 220, g: 220, b: 216, a: 1 }, width: 0.7, opacity: 0.55, visible: true },
+    face: { color: { r: 252, g: 252, b: 250, a: 1 }, opacity: 0.97, visible: true },
+    edge: { color: { r: 206, g: 206, b: 202, a: 1 }, width: 0.6, opacity: 0.25, visible: true },
   };
   const soilStyle = {
-    face: { color: { r: 18, g: 14, b: 10, a: 1 }, opacity: 0.62, visible: true },
-    edge: { color: { r: 10, g: 8, b: 6, a: 1 }, width: 0.5, opacity: 0.35, visible: true },
+    face: { color: { r: 22, g: 18, b: 14, a: 1 }, opacity: 0.98, visible: true },
+    edge: { color: { r: 10, g: 8, b: 6, a: 1 }, width: 0.5, opacity: 0.2, visible: true },
   };
   const bark = {
-    face: { color: { r: 28, g: 20, b: 16, a: 1 }, opacity: 0.58, visible: true },
-    edge: { color: { r: 16, g: 12, b: 10, a: 1 }, width: 0.6, opacity: 0.4, visible: true },
+    face: { color: { r: 34, g: 25, b: 20, a: 1 }, opacity: 0.98, visible: true },
+    edge: { color: { r: 16, g: 12, b: 10, a: 1 }, width: 0.5, opacity: 0.12, visible: false },
   };
   const leafStyles = [
     {
-      face: { color: { r: 118, g: 148, b: 78, a: 1 }, opacity: 0.5, visible: true },
-      edge: { color: { r: 70, g: 96, b: 48, a: 1 }, width: 0.35, opacity: 0.18, visible: true },
+      face: { color: { r: 122, g: 152, b: 80, a: 1 }, opacity: 0.96, visible: true },
+      edge: { color: { r: 70, g: 96, b: 48, a: 1 }, width: 0.3, opacity: 0.1, visible: false },
     },
     {
-      face: { color: { r: 148, g: 168, b: 92, a: 1 }, opacity: 0.46, visible: true },
-      edge: { color: { r: 90, g: 112, b: 58, a: 1 }, width: 0.35, opacity: 0.16, visible: true },
+      face: { color: { r: 158, g: 180, b: 100, a: 1 }, opacity: 0.96, visible: true },
+      edge: { color: { r: 90, g: 112, b: 58, a: 1 }, width: 0.3, opacity: 0.1, visible: false },
     },
     {
-      face: { color: { r: 88, g: 118, b: 62, a: 1 }, opacity: 0.52, visible: true },
-      edge: { color: { r: 52, g: 78, b: 38, a: 1 }, width: 0.35, opacity: 0.18, visible: true },
+      face: { color: { r: 92, g: 124, b: 64, a: 1 }, opacity: 0.96, visible: true },
+      edge: { color: { r: 52, g: 78, b: 38, a: 1 }, width: 0.3, opacity: 0.1, visible: false },
     },
   ];
 
@@ -439,17 +439,17 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
         segments: 48,
         profile: [
           [0, 0],
-          [42, 6],
-          [95, 28],
-          [145, 72],
-          [178, 130],
-          [198, 195],
-          [205, 255],
-          [198, 315],
-          [180, 360],
-          [162, 388],
-          [148, 402],
-          [140, 396],
+          [64, 4],
+          [112, 26],
+          [158, 70],
+          [196, 130],
+          [220, 200],
+          [228, 262],
+          [220, 322],
+          [202, 375],
+          [184, 412],
+          [172, 430],
+          [163, 424],
         ],
       },
       metadata: { name: "Pot" },
@@ -463,16 +463,17 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
     {
       id: "tree-soil",
       type: "plant",
-      transform: t(0, 0, z0 + 368),
+      transform: t(0, 0, z0 + 392),
       geometry: {
         type: "lathe",
-        segments: 24,
+        segments: 28,
         profile: [
+          [0, 24],
+          [70, 20],
+          [120, 12],
+          [152, 4],
+          [162, 0],
           [0, 0],
-          [118, 0],
-          [122, 8],
-          [110, 16],
-          [0, 16],
         ],
       },
       metadata: { name: "Soil" },
@@ -509,68 +510,89 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
     );
   };
 
-  // Photo S-curve: left lean, then up-right, then into the umbrella.
-  const trunk: Array<[number, number, number]> = [
-    [0, 0, z0 + 372],
-    [4, 10, z0 + 470],
-    [-18, 18, z0 + 620],
-    [-58, 12, z0 + 800],
-    [-92, -4, z0 + 980],
-    [-88, -18, z0 + 1160],
-    [-48, -28, z0 + 1320],
-    [8, -22, z0 + 1500],
-    [42, -6, z0 + 1680],
-    [18, 16, z0 + 1860],
-    [-36, 28, z0 + 2040],
-    [-22, 38, z0 + 2180],
-  ];
-  addTube("tree-trunk", "Trunk", trunk, [22, 20, 17, 15, 13, 12, 11, 10, 9, 8, 7, 6], 16);
+  const rand = mulberry32(0x5eed);
+  const rnd = (a: number, b: number) => a + (b - a) * rand();
+  const zf = (v: number) => z0 + v;
+  type P3 = [number, number, number];
 
-  const low: Array<[number, number, number]> = [
-    [-48, -28, z0 + 1320],
-    [40, -48, z0 + 1380],
-    [110, -42, z0 + 1480],
-    [148, -18, z0 + 1600],
-    [138, 8, z0 + 1705],
+  // Photo: dark S-trunk, a small leafy tuft low on the right, wide flat crown.
+  const trunk: P3[] = [
+    [0, 0, zf(380)],
+    [26, 14, zf(520)],
+    [6, -10, zf(700)],
+    [-48, -24, zf(880)],
+    [-46, -6, zf(1060)],
+    [-2, 20, zf(1250)],
+    [46, 16, zf(1410)],
+    [34, -14, zf(1540)],
   ];
-  addTube("tree-low", "Lower Branch", low, [8, 6.5, 5.5, 4.5, 3.5], 12);
+  addTube("tree-trunk", "Trunk", trunk, [34, 30, 27, 24, 21, 18, 16, 14], 18);
 
-  const canopyBranches: Array<Array<[number, number, number]>> = [
-    [[-22, 38, z0 + 2180], [-180, 70, z0 + 2280], [-310, 40, z0 + 2360], [-380, -10, z0 + 2410]],
-    [[-22, 38, z0 + 2180], [-120, 130, z0 + 2300], [-160, 210, z0 + 2400], [-140, 250, z0 + 2465]],
-    [[-22, 38, z0 + 2180], [40, 120, z0 + 2320], [110, 180, z0 + 2420], [150, 200, z0 + 2480]],
-    [[-22, 38, z0 + 2180], [130, 50, z0 + 2300], [250, 20, z0 + 2390], [330, -20, z0 + 2440]],
-    [[-22, 38, z0 + 2180], [90, -70, z0 + 2280], [180, -140, z0 + 2360], [210, -190, z0 + 2410]],
-    [[-22, 38, z0 + 2180], [-40, -90, z0 + 2270], [-90, -170, z0 + 2350], [-80, -230, z0 + 2415]],
-    [[-22, 38, z0 + 2180], [-160, -50, z0 + 2260], [-260, -90, z0 + 2330], [-300, -130, z0 + 2380]],
-    [[-36, 28, z0 + 2040], [-200, 20, z0 + 2140], [-280, -30, z0 + 2200], [-300, -70, z0 + 2240]],
-    [[18, 16, z0 + 1860], [80, 90, z0 + 1980], [60, 150, z0 + 2100], [20, 170, z0 + 2180]],
-    [[42, -6, z0 + 1680], [100, -80, z0 + 1800], [70, -130, z0 + 1920]],
-    [[-22, 38, z0 + 2180], [-70, 40, z0 + 2320], [-90, 50, z0 + 2440], [-70, 40, z0 + 2495]],
-    [[-22, 38, z0 + 2180], [20, -20, z0 + 2260], [80, -40, z0 + 2320], [140, -30, z0 + 2365]],
-    [[-22, 38, z0 + 2180], [-80, 90, z0 + 2240], [-150, 80, z0 + 2280], [-210, 30, z0 + 2300]],
-    [[-22, 38, z0 + 2180], [50, 80, z0 + 2230], [90, 40, z0 + 2260], [130, -10, z0 + 2280]],
+  const leftLimb: P3[] = [
+    [-47, -16, zf(1010)],
+    [-175, 28, zf(1120)],
+    [-305, 58, zf(1255)],
+    [-400, 38, zf(1420)],
+    [-436, -12, zf(1570)],
   ];
-  canopyBranches.forEach((pts, i) => {
-    const r0 = 6.5 - Math.min(2.5, i * 0.18);
-    addTube(`tree-branch-${i}`, `Branch ${i + 1}`, pts, [r0, r0 * 0.7, r0 * 0.45, 2.4], 10);
-  });
+  addTube("tree-left-limb", "Left Limb", leftLimb, [17, 14, 12, 10, 8.5], 14);
 
-  const twigs: Array<Array<[number, number, number]>> = [
-    [[-310, 40, z0 + 2360], [-360, 90, z0 + 2390], [-390, 110, z0 + 2410]],
-    [[-160, 210, z0 + 2400], [-200, 250, z0 + 2430], [-210, 270, z0 + 2450]],
-    [[110, 180, z0 + 2420], [150, 220, z0 + 2450], [160, 235, z0 + 2470]],
-    [[250, 20, z0 + 2390], [300, 50, z0 + 2420], [320, 70, z0 + 2435]],
-    [[180, -140, z0 + 2360], [210, -180, z0 + 2385], [200, -210, z0 + 2400]],
-    [[-90, -170, z0 + 2350], [-130, -210, z0 + 2375], [-140, -230, z0 + 2390]],
-    [[-260, -90, z0 + 2330], [-300, -120, z0 + 2350], [-330, -140, z0 + 2365]],
-    [[-380, -10, z0 + 2410], [-420, -40, z0 + 2390], [-450, -60, z0 + 2360]],
-    [[150, 200, z0 + 2480], [170, 160, z0 + 2440], [165, 120, z0 + 2390]],
-    [[-140, 250, z0 + 2465], [-100, 220, z0 + 2420], [-90, 180, z0 + 2370]],
+  const tuft: P3[] = [
+    [10, 10, zf(1190)],
+    [120, -40, zf(1205)],
+    [216, -62, zf(1245)],
+    [286, -44, zf(1292)],
   ];
-  twigs.forEach((pts, i) => addTube(`tree-twig-${i}`, `Twig ${i + 1}`, pts, [3.2, 2.2, 1.6], 8));
+  addTube("tree-tuft", "Lower Branch", tuft, [9, 6.5, 5, 3.6], 10);
 
-  const rand = mulberry32(0xc0ffee);
+  // Flat umbrella: highest in the middle, drooping toward the rim.
+  const crownZ = (r: number) => 2390 - 0.00042 * r * r;
+
+  const sprays: Array<{ path: P3[]; count: number; spread: number; size: number }> = [];
+  let branchSeq = 0;
+
+  const grow = (origin: P3, angle: number, reach: number, radius: number, depth: number) => {
+    branchSeq += 1;
+    const id = branchSeq;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const tipX = origin[0] + dx * reach;
+    const tipY = origin[1] + dy * reach;
+    const tip: P3 = [tipX, tipY, zf(crownZ(Math.hypot(tipX, tipY))) - rnd(0, 70)];
+    const mid: P3 = [
+      origin[0] + dx * reach * 0.5 + rnd(-35, 35),
+      origin[1] + dy * reach * 0.5 + rnd(-35, 35),
+      (origin[2] + tip[2]) / 2 + rnd(20, 80),
+    ];
+    const path: P3[] = [origin, mid, tip];
+    addTube(
+      `tree-branch-${id}`,
+      depth === 0 ? `Limb ${id}` : `Branch ${id}`,
+      path,
+      [radius, radius * 0.62, radius * 0.4],
+      depth === 0 ? 12 : 8,
+    );
+
+    if (depth >= 2) {
+      sprays.push({ path, count: 6, spread: 46, size: 15 });
+      return;
+    }
+    if (depth > 0) sprays.push({ path, count: 4, spread: 40, size: 16 });
+    const kids = depth === 0 ? 3 : 2;
+    for (let i = 0; i < kids; i += 1) {
+      grow(tip, angle + rnd(-0.9, 0.9), reach * rnd(0.45, 0.72), radius * 0.56, depth + 1);
+    }
+  };
+
+  const fork = trunk[trunk.length - 1];
+  for (let i = 0; i < 7; i += 1) {
+    grow(fork, (i / 7) * Math.PI * 2 + rnd(-0.2, 0.2), rnd(270, 410), 11.5, 0);
+  }
+  const leftTop = leftLimb[leftLimb.length - 1];
+  for (let i = 0; i < 4; i += 1) {
+    grow(leftTop, Math.PI + (i - 1.5) * 0.6 + rnd(-0.18, 0.18), rnd(230, 340), 8.5, 0);
+  }
+
   let leaf = 0;
   const addLeaf = (
     x: number,
@@ -599,8 +621,8 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
           type: "leaf",
           length,
           width,
-          thickness: 0.55,
-          cup: 0.28,
+          thickness: 0.5,
+          cup: 0.22,
           segments: 6,
         },
         metadata: { name: `Leaf ${leaf}` },
@@ -610,77 +632,59 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
     );
   };
 
-  const sprayOnBranch = (
-    pts: Array<[number, number, number]>,
-    count: number,
-    t0: number,
-    spread: number,
-    len0: number,
-    len1: number,
-  ) => {
-    for (let i = 0; i < count; i++) {
+  /** Leaflets scattered around the outer part of a branch, blades near-flat. */
+  const spray = (path: P3[], count: number, spread: number, size: number, t0 = 0.35) => {
+    for (let i = 0; i < count; i += 1) {
       const t = t0 + (1 - t0) * rand();
-      const p = pointOnPolyline(pts, t);
-      const tan = tangentOnPolyline(pts, t);
+      const p = pointOnPolyline(path, t);
+      const tan = tangentOnPolyline(path, t);
       const tl = Math.hypot(tan[0], tan[1], tan[2]) || 1;
       const ux = tan[0] / tl;
       const uy = tan[1] / tl;
       const uz = tan[2] / tl;
-      const hx = Math.abs(uz) < 0.9 ? 0 : 1;
-      const hy = Math.abs(uz) < 0.9 ? 0 : 0;
-      const hz = Math.abs(uz) < 0.9 ? 1 : 0;
-      let nx = uy * hz - uz * hy;
-      let ny = uz * hx - ux * hz;
-      let nz = ux * hy - uy * hx;
-      const nl = Math.hypot(nx, ny, nz) || 1;
-      nx /= nl;
-      ny /= nl;
-      nz /= nl;
-      const bx = uy * nz - uz * ny;
-      const by = uz * nx - ux * nz;
-      const bz = ux * ny - uy * nx;
       const ang = rand() * Math.PI * 2;
-      const rad = spread * (0.15 + 0.85 * rand());
-      const ox = nx * Math.cos(ang) * rad + bx * Math.sin(ang) * rad;
-      const oy = ny * Math.cos(ang) * rad + by * Math.sin(ang) * rad;
-      const oz = nz * Math.cos(ang) * rad + bz * Math.sin(ang) * rad;
-      const dx = ox * 0.45 + ux;
-      const dy = oy * 0.45 + uy;
-      const dz = oz * 0.45 + uz * 0.35 + (rand() - 0.45) * 0.6;
-      const length = len0 + rand() * (len1 - len0);
-      addLeaf(p[0] + ox, p[1] + oy, p[2] + oz, dx, dy, dz, rand() * 360, rand() * 50 - 18, length, length * (0.38 + rand() * 0.12));
+      const rad = spread * (0.2 + 0.8 * rand());
+      const ox = Math.cos(ang) * rad;
+      const oy = Math.sin(ang) * rad;
+      const oz = rnd(-0.35, 0.25) * spread;
+      const len = size + rnd(0, 10);
+      addLeaf(
+        p[0] + ox,
+        p[1] + oy,
+        p[2] + oz,
+        ux * 0.5 + ox,
+        uy * 0.5 + oy,
+        uz * 0.3 + rnd(-0.25, 0.4) * spread,
+        90 + rnd(-45, 45),
+        rnd(-18, 18),
+        len,
+        len * rnd(0.38, 0.5),
+      );
     }
   };
 
-  canopyBranches.forEach((pts, i) => {
-    const long = i < 8;
-    sprayOnBranch(pts, long ? 42 : 26, 0.22, long ? 58 : 40, 16, 26);
-  });
-  twigs.forEach((pts) => sprayOnBranch(pts, 22, 0.02, 44, 15, 24));
-  sprayOnBranch(low, 32, 0.5, 52, 15, 23);
-  sprayOnBranch(trunk, 18, 0.8, 32, 14, 22);
+  for (const s of sprays) spray(s.path, s.count, s.spread, s.size);
+  spray(tuft, 46, 52, 15, 0.3);
+  spray(trunk, 10, 28, 14, 0.88);
 
-  for (let i = 0; i < 90; i++) {
-    const u = rand();
-    const v = rand();
-    const w = rand();
-    const theta = u * Math.PI * 2;
-    const phi = Math.acos(2 * v - 1);
-    const r = 0.35 + 0.65 * w;
-    const cx = -40 + Math.sin(phi) * Math.cos(theta) * 340 * r;
-    const cy = 20 + Math.sin(phi) * Math.sin(theta) * 300 * r;
-    const cz = z0 + 2320 + Math.cos(phi) * 220 * r;
+  // Fill the crown shell so the silhouette stays dense from every angle.
+  for (let i = 0; i < 180; i += 1) {
+    const r = 120 + Math.sqrt(rand()) * 700;
+    const a = rand() * Math.PI * 2;
+    const x = Math.cos(a) * r;
+    const y = Math.sin(a) * r;
+    const len = 15 + rnd(0, 9);
     addLeaf(
-      cx,
-      cy,
-      cz,
-      cx + (rand() - 0.5) * 40,
-      cy + (rand() - 0.5) * 40,
-      40 + rand() * 80,
-      rand() * 360,
-      rand() * 40 - 12,
-      16 + rand() * 10,
-      7 + rand() * 5,
+      x,
+      y,
+      zf(crownZ(r)) - rnd(0, 170),
+      Math.cos(a) * rnd(0.4, 1.2),
+      Math.sin(a) * rnd(0.4, 1.2),
+      rnd(-0.35, 0.5),
+      90 + rnd(-50, 50),
+      rnd(-20, 20),
+      len,
+      len * rnd(0.38, 0.5),
     );
   }
 
@@ -841,7 +845,7 @@ export function createApartmentDocument(): PlanaDocument {
     ]),
     "living",
   );
-  doc = addShelving(doc, "living", 3.633, 3.821);
+  doc = addShelving(doc, "living", 2.395, 2.605);
   doc = addJadePlant(doc, "living");
 
   return doc;

@@ -212,6 +212,104 @@ export function computeRoomCornerVerticals(segments: WallWorldSegment[]): RoomCo
   return out;
 }
 
+type Interval = [number, number];
+
+function clipSlab(v0: number, v1: number, lo: number, hi: number, range: Interval): boolean {
+  const dv = v1 - v0;
+  if (Math.abs(dv) < 1e-9) return v0 >= lo && v0 <= hi;
+  let ta = (lo - v0) / dv;
+  let tb = (hi - v0) / dv;
+  if (ta > tb) {
+    const tmp = ta;
+    ta = tb;
+    tb = tmp;
+  }
+  range[0] = Math.max(range[0], ta);
+  range[1] = Math.min(range[1], tb);
+  return range[0] < range[1] - 1e-9;
+}
+
+/** Parameter range of a segment that lies strictly inside a wall's footprint. */
+function hiddenRange(
+  p0: [number, number, number],
+  p1: [number, number, number],
+  wall: WallWorldSegment,
+  eps: number,
+): Interval | null {
+  const zLo = Math.min(p0[2], p1[2]);
+  const zHi = Math.max(p0[2], p1[2]);
+  if (zHi < wall.baseZ - eps || zLo > wall.baseZ + wall.height + eps) return null;
+
+  const ax = wall.a[0];
+  const ay = wall.a[1];
+  const dx = wall.b[0] - ax;
+  const dy = wall.b[1] - ay;
+  const len = Math.hypot(dx, dy);
+  const half = wall.thickness / 2 - eps;
+  if (len < 1e-6 || half <= 0) return null;
+  const ux = dx / len;
+  const uy = dy / len;
+
+  const s0 = (p0[0] - ax) * ux + (p0[1] - ay) * uy;
+  const s1 = (p1[0] - ax) * ux + (p1[1] - ay) * uy;
+  const d0 = (p0[0] - ax) * -uy + (p0[1] - ay) * ux;
+  const d1 = (p1[0] - ax) * -uy + (p1[1] - ay) * ux;
+
+  const range: Interval = [0, 1];
+  if (!clipSlab(s0, s1, eps, len - eps, range)) return null;
+  if (!clipSlab(d0, d1, -half, half, range)) return null;
+  return [Math.max(0, range[0]), Math.min(1, range[1])];
+}
+
+/**
+ * Drop the parts of a wall's edges buried inside neighbouring walls, so a plan
+ * view shows only the room outline and the apartment outline — never the
+ * start/end of an individual wall piece.
+ */
+export function clipEdgesInsideWalls(
+  edges: Float32Array,
+  selfId: string,
+  segments: WallWorldSegment[],
+  epsMm = 1.5,
+): Float32Array {
+  const others = segments.filter((s) => s.id !== selfId);
+  if (!others.length) return edges;
+
+  const out: number[] = [];
+  for (let i = 0; i < edges.length; i += 6) {
+    const p0: [number, number, number] = [edges[i], edges[i + 1], edges[i + 2]];
+    const p1: [number, number, number] = [edges[i + 3], edges[i + 4], edges[i + 5]];
+    let keep: Interval[] = [[0, 1]];
+    for (const wall of others) {
+      const hidden = hiddenRange(p0, p1, wall, epsMm);
+      if (!hidden) continue;
+      const next: Interval[] = [];
+      for (const [a, b] of keep) {
+        if (hidden[1] <= a || hidden[0] >= b) {
+          next.push([a, b]);
+          continue;
+        }
+        if (hidden[0] > a) next.push([a, hidden[0]]);
+        if (hidden[1] < b) next.push([hidden[1], b]);
+      }
+      keep = next;
+      if (!keep.length) break;
+    }
+
+    const dx = p1[0] - p0[0];
+    const dy = p1[1] - p0[1];
+    const dz = p1[2] - p0[2];
+    const total = Math.hypot(dx, dy, dz);
+    const minKeep = Math.max(epsMm * 4, 5);
+    for (const [a, b] of keep) {
+      if ((b - a) * total < minKeep) continue;
+      out.push(p0[0] + dx * a, p0[1] + dy * a, p0[2] + dz * a);
+      out.push(p0[0] + dx * b, p0[1] + dy * b, p0[2] + dz * b);
+    }
+  }
+  return new Float32Array(out);
+}
+
 /** Which wall ends need top/bottom seam edges hidden (corners stay). */
 export function computeWallEndCapHiding(segments: WallWorldSegment[]): Map<string, WallEndCaps> {
   const result = new Map<string, WallEndCaps>();
