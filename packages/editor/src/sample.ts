@@ -14,6 +14,7 @@ import {
   identityTransform,
   multiplyQuat,
   quatFromEulerDeg,
+  type ObjectStyle,
   type PlanaDocument,
   type PlanaObject,
   type Transform,
@@ -48,13 +49,72 @@ const box = (
   sy: number,
   sz: number,
   name: string,
+  style?: ObjectStyle,
+  yawDeg = 0,
+): PlanaObject => ({
+  id,
+  type,
+  transform: {
+    ...t(x, y, z),
+    rotation: yawDeg ? quatFromEulerDeg(0, 0, yawDeg) : identityTransform().rotation,
+  },
+  geometry: { type: "box", size: [sx, sy, sz] },
+  metadata: { name },
+  style,
+});
+
+const cyl = (
+  id: string,
+  type: string,
+  x: number,
+  y: number,
+  z: number,
+  radius: number,
+  height: number,
+  name: string,
+  style?: ObjectStyle,
+  segments = 20,
 ): PlanaObject => ({
   id,
   type,
   transform: t(x, y, z),
-  geometry: { type: "box", size: [sx, sy, sz] },
+  geometry: { type: "cylinder", radius, height, radialSegments: segments },
   metadata: { name },
+  style,
 });
+
+const paint = (
+  r: number,
+  g: number,
+  b: number,
+  opacity = 0.97,
+  edge = 0.28,
+): ObjectStyle => ({
+  face: { color: { r, g, b, a: 1 }, opacity, visible: true },
+  edge: {
+    color: { r: Math.max(0, r - 36), g: Math.max(0, g - 36), b: Math.max(0, b - 36), a: 1 },
+    width: 0.65,
+    opacity: edge,
+    visible: true,
+  },
+});
+
+const cream = paint(236, 232, 222);
+const oak = paint(186, 142, 90);
+const black = paint(18, 18, 20, 0.98, 0.22);
+const charcoal = paint(32, 32, 36, 0.98, 0.2);
+const duvet = paint(12, 12, 14, 0.98, 0.16);
+const screen = paint(8, 10, 14, 0.99, 0.12);
+const glass = {
+  face: { color: { r: 186, g: 214, b: 230, a: 1 }, opacity: 0.28, visible: true },
+  edge: { color: { r: 148, g: 180, b: 198, a: 1 }, width: 0.6, opacity: 0.45, visible: true },
+} satisfies ObjectStyle;
+const glassPad = {
+  face: { color: { r: 210, g: 226, b: 236, a: 1 }, opacity: 0.34, visible: true },
+  edge: { color: { r: 160, g: 188, b: 204, a: 1 }, width: 0.7, opacity: 0.55, visible: true },
+} satisfies ObjectStyle;
+const keycaps = paint(232, 232, 228, 0.97, 0.2);
+const micBody = paint(28, 30, 36, 0.98, 0.2);
 
 function add(doc: PlanaDocument, object: PlanaObject, parent: string): PlanaDocument {
   return addObject(doc, object, parent);
@@ -325,6 +385,181 @@ function addShelving(doc: PlanaDocument, parent: string, xWest: number, zNorth: 
   return doc;
 }
 
+/** Bed tucked between the Kallax and the west window, against the partition. */
+function addBed(doc: PlanaDocument, parent: string): PlanaDocument {
+  const length = 2000;
+  const width = 1600;
+  const x0 = 230;
+  const y0 = 2620;
+  const cx = x0 + length / 2;
+  const cy = y0 + width / 2;
+  const z = FLOOR_T;
+  doc = add(doc, group("bed", "Bed", cx, cy, 0), parent);
+
+  const local = (
+    id: string,
+    type: string,
+    x: number,
+    y: number,
+    zb: number,
+    sx: number,
+    sy: number,
+    sz: number,
+    name: string,
+    style?: ObjectStyle,
+  ) => {
+    doc = add(doc, box(id, type, x - cx, y - cy, zb, sx, sy, sz, name, style), "bed");
+  };
+
+  local("bed-plinth", "bed", cx, cy, z, length, width, 300, "Bed Platform", cream);
+  local("bed-drawer-w", "bed", cx - 430, y0 + width - 18, z + 40, 820, 36, 220, "West Drawer", cream);
+  local("bed-drawer-e", "bed", cx + 430, y0 + width - 18, z + 40, 820, 36, 220, "East Drawer", cream);
+  local("bed-mattress", "bed", cx, cy, z + 300, 1980, 1580, 160, "Mattress", charcoal);
+  local("bed-sheet", "bed", cx + 40, cy + 20, z + 455, 1880, 1500, 18, "Sheet", duvet);
+  local("bed-duvet", "bed", cx + 120, cy + 40, z + 470, 1640, 1320, 90, "Duvet", duvet);
+  local("bed-pillow-a", "bed", x0 + 180, cy - 280, z + 460, 280, 520, 130, "Pillow", duvet);
+  local("bed-pillow-b", "bed", x0 + 180, cy + 280, z + 460, 280, 520, 130, "Pillow", duvet);
+  return doc;
+}
+
+/** IKEA BESTÅ against the south wall, facing the bed, plasma on top. */
+function addTvStand(doc: PlanaDocument, parent: string): PlanaDocument {
+  const w = 1800;
+  const d = 410;
+  const h = 480;
+  const x0 = 520;
+  const y1 = 5785;
+  const cx = x0 + w / 2;
+  const cy = y1 - d / 2;
+  const z = FLOOR_T;
+  doc = add(doc, group("tv-stand", "TV Stand", cx, cy, 0), parent);
+
+  const local = (
+    id: string,
+    type: string,
+    x: number,
+    y: number,
+    zb: number,
+    sx: number,
+    sy: number,
+    sz: number,
+    name: string,
+    style?: ObjectStyle,
+  ) => {
+    doc = add(doc, box(id, type, x - cx, y - cy, zb, sx, sy, sz, name, style), "tv-stand");
+  };
+
+  for (const [i, lx, ly] of [
+    [0, x0 + 50, y1 - d + 50],
+    [1, x0 + w - 50, y1 - d + 50],
+    [2, x0 + 50, y1 - 50],
+    [3, x0 + w - 50, y1 - 50],
+  ] as Array<[number, number, number]>) {
+    doc = add(
+      doc,
+      cyl(`tv-leg-${i}`, "cabinet", lx - cx, ly - cy, z, 18, 40, `TV Leg ${i + 1}`, cream),
+      "tv-stand",
+    );
+  }
+
+  local("tv-body", "cabinet", cx, cy, z + 40, w, d, h - 40, "BESTA Body", cream);
+  local("tv-top", "cabinet", cx, cy, z + h - 24, w + 8, d + 8, 24, "BESTA Top", cream);
+  local("tv-drawer-w", "cabinet", cx - 430, y1 - 20, z + 70, 820, 22, 340, "West Drawer Front", cream);
+  local("tv-drawer-e", "cabinet", cx + 430, y1 - 20, z + 70, 820, 22, 340, "East Drawer Front", cream);
+  local("tv-knob-w", "decor", cx - 430, y1 - 8, z + 230, 18, 12, 18, "West Knob", cream);
+  local("tv-knob-e", "decor", cx + 430, y1 - 8, z + 230, 18, 12, 18, "East Knob", cream);
+
+  const tvW = 980;
+  const tvD = 70;
+  const tvH = 560;
+  local("tv-plasma", "appliance", cx, cy - 20, z + h + 70, tvW, tvD, tvH, "Plasma TV", black);
+  local("tv-screen", "appliance", cx, cy - 20 - tvD / 2 + 4, z + h + 90, tvW - 40, 6, tvH - 50, "TV Screen", screen);
+  local("tv-neck", "appliance", cx, cy + 10, z + h, 80, 70, 70, "TV Neck", black);
+  local("tv-base", "appliance", cx, cy + 20, z + h, 280, 180, 18, "TV Base", black);
+  return doc;
+}
+
+/** Desk east of the Kallax, against the partition, with the PC kit from the photos. */
+function addDesk(doc: PlanaDocument, parent: string): PlanaDocument {
+  const w = 1200;
+  const d = 600;
+  const top = 30;
+  const deskH = 750;
+  const x0 = 2860;
+  const y0 = 2620;
+  const cx = x0 + w / 2;
+  const cy = y0 + d / 2;
+  const z = FLOOR_T;
+  const topZ = z + deskH - top;
+  doc = add(doc, group("desk", "Desk", cx, cy, 0), parent);
+
+  const local = (
+    id: string,
+    type: string,
+    x: number,
+    y: number,
+    zb: number,
+    sx: number,
+    sy: number,
+    sz: number,
+    name: string,
+    style?: ObjectStyle,
+    yaw = 0,
+  ) => {
+    doc = add(doc, box(id, type, x - cx, y - cy, zb, sx, sy, sz, name, style, yaw), "desk");
+  };
+
+  local("desk-top", "desk", cx, cy, topZ, w, d, top, "Desk Top", oak);
+  for (const [i, lx, ly] of [
+    [0, x0 + 40, y0 + 40],
+    [1, x0 + w - 40, y0 + 40],
+    [2, x0 + 40, y0 + d - 40],
+    [3, x0 + w - 40, y0 + d - 40],
+  ] as Array<[number, number, number]>) {
+    local(`desk-leg-${i}`, "desk", lx, ly, z, 30, 30, deskH - top, `Desk Leg ${i + 1}`, black);
+  }
+
+  const surface = z + deskH;
+  local("desk-monitor-stand", "appliance", cx - 40, y0 + 90, surface, 220, 160, 14, "Monitor Base", black);
+  doc = add(
+    doc,
+    cyl("desk-monitor-neck", "appliance", -40, 90 - d / 2, surface + 14, 16, 110, "Monitor Neck", black, 16),
+    "desk",
+  );
+  local("desk-monitor", "appliance", cx - 40, y0 + 70, surface + 120, 620, 40, 360, "Monitor", black);
+  local("desk-monitor-screen", "appliance", cx - 40, y0 + 70 + 18, surface + 140, 580, 6, 320, "Monitor Screen", screen);
+
+  local("desk-keyboard", "appliance", cx - 20, y0 + 340, surface, 360, 130, 18, "Keyboard", keycaps);
+  local("desk-pad", "appliance", cx + 280, y0 + 360, surface, 420, 360, 6, "Glass Mousepad", glassPad);
+  local("desk-mouse", "appliance", cx + 300, y0 + 330, surface + 6, 64, 110, 38, "Mouse", black);
+
+  doc = add(
+    doc,
+    cyl("mic-base", "appliance", -420, 80, surface, 38, 8, "Mic Base", black, 20),
+    "desk",
+  );
+  doc = add(
+    doc,
+    cyl("mic-stem", "appliance", -420, 80, surface + 8, 7, 150, "Mic Stem", black, 12),
+    "desk",
+  );
+  local("mic-body", "appliance", cx - 420, y0 + d / 2 + 80, surface + 150, 58, 58, 118, "Fifine AM8", micBody, 18);
+  local("mic-window", "appliance", cx - 420, y0 + d / 2 + 80 + 22, surface + 168, 36, 8, 78, "Mic Mesh", charcoal);
+
+  const pcX = x0 + w + 160;
+  const pcY = y0 + 280;
+  const pcW = 220;
+  const pcD = 450;
+  const pcH = 450;
+  local("pc-case", "appliance", pcX, pcY, z, pcW, pcD, pcH, "PC Case", black);
+  local("pc-glass", "window", pcX, pcY + pcD / 2 - 3, z + 30, pcW - 40, 6, pcH - 70, "PC Glass Panel", glass);
+  local("pc-feet-a", "appliance", pcX - 80, pcY - 160, z, 28, 28, 12, "PC Foot A", charcoal);
+  local("pc-feet-b", "appliance", pcX + 80, pcY - 160, z, 28, 28, 12, "PC Foot B", charcoal);
+  local("pc-feet-c", "appliance", pcX - 80, pcY + 160, z, 28, 28, 12, "PC Foot C", charcoal);
+  local("pc-feet-d", "appliance", pcX + 80, pcY + 160, z, 28, 28, 12, "PC Foot D", charcoal);
+  return doc;
+}
+
 
 
 function quatAlignZ(dx: number, dy: number, dz: number): [number, number, number, number] {
@@ -390,7 +625,7 @@ function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
       type: "group",
       transform: {
         ...identityTransform(),
-        position: [5.15 * MM, 4.8 * MM, 0],
+        position: [5.15 * MM, 5.08 * MM, 0],
         rotation: quatFromEulerDeg(0, 0, 200),
       },
       children: [],
@@ -846,6 +1081,9 @@ export function createApartmentDocument(): PlanaDocument {
     "living",
   );
   doc = addShelving(doc, "living", 2.395, 2.605);
+  doc = addBed(doc, "living");
+  doc = addTvStand(doc, "living");
+  doc = addDesk(doc, "living");
   doc = addJadePlant(doc, "living");
 
   return doc;
