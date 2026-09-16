@@ -46,6 +46,8 @@ export class PlanaRenderer {
   private onSelect?: (id?: ObjectId) => void;
   private document: PlanaDocument | null = null;
 
+  private pointerDown: { x: number; y: number } | null = null;
+
   constructor(canvas: HTMLCanvasElement) {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
     this.camera.up.set(0, 0, 1);
@@ -76,7 +78,8 @@ export class PlanaRenderer {
     this.controls.target.set(0, 0, 1);
     this.controls.maxPolarAngle = Math.PI * 0.495;
 
-    canvas.addEventListener("pointerdown", this.handlePointer);
+    canvas.addEventListener("pointerdown", this.handlePointerDown);
+    canvas.addEventListener("pointerup", this.handlePointerUp);
     this.loop();
   }
 
@@ -199,9 +202,17 @@ export class PlanaRenderer {
     if (runtime.face && style.face) {
       const mat = runtime.face.material as THREE.MeshBasicMaterial;
       mat.color = colorFromRgba(style.face.color);
-      mat.opacity = selected ? Math.min(1, style.face.opacity + 0.18) : style.face.opacity;
-      mat.visible = style.face.visible;
-      runtime.face.visible = style.face.visible;
+      const opacity = style.face.visible ? style.face.opacity : 0;
+      mat.opacity = selected && opacity > 0 ? Math.min(1, opacity + 0.12) : opacity;
+      mat.transparent = true;
+      mat.depthWrite = false;
+      mat.colorWrite = opacity > 0.001;
+      // keep mesh raycastable even when fully transparent (walls)
+      runtime.face.visible = true;
+      runtime.face.raycast =
+        opacity > 0.001 || object.type === "wall"
+          ? THREE.Mesh.prototype.raycast
+          : () => undefined;
     }
 
     if (runtime.edge && style.edge) {
@@ -235,13 +246,29 @@ export class PlanaRenderer {
     }
   }
 
-  private handlePointer = (event: PointerEvent) => {
-    if (!this.onSelect || event.button !== 0) return;
+  private handlePointerDown = (event: PointerEvent) => {
+    if (event.button !== 0) return;
+    this.pointerDown = { x: event.clientX, y: event.clientY };
+  };
+
+  private handlePointerUp = (event: PointerEvent) => {
+    if (!this.onSelect || !this.pointerDown || event.button !== 0) {
+      this.pointerDown = null;
+      return;
+    }
+    const dx = event.clientX - this.pointerDown.x;
+    const dy = event.clientY - this.pointerDown.y;
+    this.pointerDown = null;
+    if (dx * dx + dy * dy > 25) return; // drag / orbit — do not select
+
     const rect = this.webgl.domElement.getBoundingClientRect();
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const hits = this.raycaster.intersectObjects([...this.runtimes.values()].map((r) => r.group), true);
+    const hits = this.raycaster.intersectObjects(
+      [...this.runtimes.values()].map((r) => r.group),
+      true,
+    );
     let node: THREE.Object3D | null = hits[0]?.object ?? null;
     while (node && !node.userData.planaId) node = node.parent;
     this.onSelect(node?.userData.planaId);
@@ -257,7 +284,8 @@ export class PlanaRenderer {
   dispose() {
     this.disposed = true;
     cancelAnimationFrame(this.frame);
-    this.webgl.domElement.removeEventListener("pointerdown", this.handlePointer);
+    this.webgl.domElement.removeEventListener("pointerdown", this.handlePointerDown);
+    this.webgl.domElement.removeEventListener("pointerup", this.handlePointerUp);
     this.controls.dispose();
     for (const runtime of this.runtimes.values()) this.disposeRuntimeMeshes(runtime);
     this.runtimes.clear();

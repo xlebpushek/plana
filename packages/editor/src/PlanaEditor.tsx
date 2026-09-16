@@ -97,15 +97,10 @@ export function PlanaEditor({
     });
     setDocument(next);
     setSelectedIds([id]);
-    if (mobile) setRightOpen(true);
   };
 
   const selectObject = (id?: ObjectId) => {
     setSelectedIds(id ? [id] : []);
-    if (mobile && id) {
-      setRightOpen(true);
-      setLeftOpen(false);
-    }
   };
 
   const euler = selected ? eulerDegFromQuat(selected.transform.rotation) : [0, 0, 0];
