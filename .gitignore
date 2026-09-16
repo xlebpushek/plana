@@ -1,10 +1,9 @@
 node_modules
 dist
-.turbo
 *.tsbuildinfo
 .DS_Store
 .env
 .env.*
-!.env.example
-apps/demo/dist
 packages/*/dist
+packages/editor/dev-dist
+coverage

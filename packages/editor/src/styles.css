@@ -1,108 +1,102 @@
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #09090b;
+  --card-foreground: #fafafa;
+  --popover: #09090b;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #7f1d1d;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #d4d4d8;
+  --radius: 0.5rem;
+}
+
 .plana-editor {
-  --bg: #fafafa;
-  --panel: #ffffff;
-  --border: #e4e4e7;
-  --text: #18181b;
-  --muted: #71717a;
-  --accent: #2563eb;
-  --accent-soft: #eff6ff;
-  --hover: #f4f4f5;
   display: grid;
-  grid-template-rows: 48px 1fr 28px;
+  grid-template-rows: 52px 1fr 28px;
   width: 100%;
   height: 100%;
   min-height: 100vh;
-  color: var(--text);
-  background: var(--bg);
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 13px;
+  border: 1px solid var(--border);
 }
 
-.plana-toolbar,
-.plana-status,
-.plana-panel-title {
+.plana-topbar,
+.plana-statusbar,
+.plana-panel__title {
   border-color: var(--border);
 }
 
-.plana-toolbar {
+.plana-topbar {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  background: rgba(9, 9, 11, 0.92);
+  backdrop-filter: blur(10px);
 }
 
 .plana-brand {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 10px;
   min-width: 220px;
 }
 
-.plana-logo {
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 18px;
+.plana-mark {
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  font-size: 15px;
 }
 
-.plana-doc-name {
-  width: 160px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  padding: 4px 8px;
-  font: inherit;
-  color: var(--muted);
+.plana-subtitle {
+  color: var(--muted-foreground);
+  font-size: 12px;
 }
 
-.plana-doc-name:hover,
-.plana-doc-name:focus {
-  border-color: var(--border);
-  background: var(--hover);
-  outline: none;
-  color: var(--text);
-}
-
-.plana-tools,
-.plana-actions,
-.plana-row {
+.plana-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
-.plana-tools {
-  flex: 1;
+.plana-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
 }
 
 .plana-toolbar button,
-.plana-file,
-.plana-inspector button,
 .plana-tree button {
+  appearance: none;
   border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text);
-  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  border-radius: calc(var(--radius) - 2px);
   padding: 6px 10px;
   font: inherit;
   cursor: pointer;
-  text-transform: capitalize;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .plana-toolbar button:hover,
-.plana-file:hover,
-.plana-inspector button:hover,
 .plana-tree button:hover {
-  background: var(--hover);
-}
-
-.plana-toolbar button.is-active,
-.plana-tree button.is-active {
-  border-color: #bfdbfe;
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--accent);
 }
 
 .plana-toolbar button:disabled {
@@ -110,39 +104,35 @@
   cursor: not-allowed;
 }
 
-.plana-file {
-  display: inline-flex;
-  align-items: center;
-}
-
-.plana-body {
+.plana-layout {
   display: grid;
-  grid-template-columns: 240px 1fr 280px;
+  grid-template-columns: 260px minmax(0, 1fr) 300px;
   min-height: 0;
 }
 
 .plana-panel {
-  background: var(--panel);
-  border-color: var(--border);
+  border-right: 1px solid var(--border);
+  background: #09090b;
   overflow: auto;
 }
 
-.plana-left {
-  border-right: 1px solid var(--border);
-}
-
-.plana-right {
+.plana-panel--right {
+  border-right: none;
   border-left: 1px solid var(--border);
 }
 
-.plana-panel-title {
+.plana-panel__title {
   position: sticky;
   top: 0;
   z-index: 1;
   padding: 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel);
-  font-weight: 600;
+  background: #09090b;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .plana-tree {
@@ -157,29 +147,39 @@
   gap: 8px;
   width: 100%;
   text-align: left;
-  border: none;
-  border-radius: 6px;
+  border: 1px solid transparent;
+}
+
+.plana-tree button.is-active {
+  background: var(--secondary);
+  border-color: var(--border);
 }
 
 .plana-type {
-  color: var(--muted);
-  text-transform: uppercase;
+  color: var(--muted-foreground);
   font-size: 10px;
+  text-transform: uppercase;
   letter-spacing: 0.04em;
-  min-width: 48px;
+  min-width: 64px;
 }
 
 .plana-viewport {
   position: relative;
   min-width: 0;
-  background: #f4f4f5;
+  background: #09090b;
 }
 
-.plana-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-  touch-action: none;
+.plana-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(9, 9, 11, 0.8);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  pointer-events: none;
 }
 
 .plana-inspector {
@@ -193,65 +193,61 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .plana-inspector input {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 8px;
+  border: 1px solid var(--input);
+  border-radius: calc(var(--radius) - 2px);
+  background: #09090b;
+  color: var(--foreground);
+  padding: 7px 9px;
   font: inherit;
-  color: var(--text);
   text-transform: none;
   letter-spacing: normal;
 }
 
 .plana-inspector input:focus {
-  outline: 2px solid #bfdbfe;
-  border-color: #93c5fd;
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px rgba(212, 212, 216, 0.15);
 }
 
-.plana-grid2 {
+.plana-grid3 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .plana-muted {
-  color: var(--muted);
-  padding: 12px;
   margin: 0;
+  padding: 12px;
+  color: var(--muted-foreground);
 }
 
-.plana-status {
+.plana-statusbar {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 0 12px;
   border-top: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
+  background: #09090b;
 }
 
-@media (max-width: 960px) {
-  .plana-body {
+@media (max-width: 1100px) {
+  .plana-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 160px 1fr 220px;
+    grid-template-rows: 180px minmax(320px, 1fr) 240px;
   }
 
-  .plana-left,
-  .plana-right {
+  .plana-panel,
+  .plana-panel--right {
     border: none;
     border-bottom: 1px solid var(--border);
-  }
-
-  .plana-toolbar {
-    flex-wrap: wrap;
-    height: auto;
-    padding: 8px;
   }
 }

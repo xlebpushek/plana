@@ -1,24 +1,29 @@
 # Plana
 
-Интерактивная библиотека для создания, редактирования и просмотра пространственных планов/сцен.
+Низкоуровневый 3D engine + React UI для планировок квартир/домов.
 
-## Пакеты
+## Packages
 
-- `@plana/viewer` — модель документа, canvas-рендер, read-only Viewer
-- `@plana/editor` — Editor (tools, selection, transform, inspector, import/export) поверх viewer
+```
+editor → viewer → renderer → core
+```
 
-## Demo
+- `@plana/core` — document/object/geometry/style/serialization (Zod, mm, без Three/React)
+- `@plana/renderer` — Three.js CAD renderer (transparent faces + colored edges)
+- `@plana/viewer` — React viewport (orbit/pan/zoom/selection)
+- `@plana/editor` — editor shell поверх Viewer
+
+## Develop
 
 ```bash
 pnpm install
-pnpm dev
+pnpm --filter @plana/core test
+pnpm --filter @plana/editor dev
 ```
 
-Откроется `apps/demo` с переключением Editor / Viewer.
-
-## Сборка
+Preview build:
 
 ```bash
-pnpm build
-pnpm preview
+pnpm --filter @plana/editor preview:build
+pnpm --filter @plana/editor preview
 ```

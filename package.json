@@ -4,13 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @plana/demo dev",
-    "build": "pnpm -r --filter=./packages/* build && pnpm --filter @plana/demo build",
-    "preview": "pnpm --filter @plana/demo preview",
-    "typecheck": "pnpm -r typecheck"
+    "build": "pnpm -r --filter=./packages/* build",
+    "test": "pnpm --filter @plana/core test",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "pnpm --filter @plana/editor dev"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {

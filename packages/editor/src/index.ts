@@ -1,15 +1,3 @@
-export { PlanaEditor } from "./PlanaEditor";
-export type { PlanaEditorProps } from "./PlanaEditor";
-
-export type { EditorTool } from "./operations";
-export {
-  addObject,
-  createEllipseAt,
-  createRectAt,
-  deleteObjects,
-  groupObjects,
-  moveObjects,
-  reorderObject,
-  updateObject,
-  updateStyle,
-} from "./operations";
+export { PlanaEditor } from "./PlanaEditor.js";
+export type { PlanaEditorProps } from "./PlanaEditor.js";
+export { createApartmentDocument } from "./sample.js";
