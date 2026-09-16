@@ -3,11 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import {
   addObject,
   createDocument,
+  createId,
   eulerDegFromQuat,
   identityTransform,
   quatFromEulerDeg,
   removeObject,
   serializePretty,
+  deserialize,
   traverseObjects,
   updateObject,
   type ObjectId,
@@ -86,26 +88,76 @@ export function PlanaEditor({
     URL.revokeObjectURL(url);
   };
 
-  const addFurniture = (type: string, size: [number, number, number]) => {
-    const id = `${type}-${Math.random().toString(36).slice(2, 7)}`;
-    const next = addObject(document, {
-      id,
-      type,
-      transform: { ...identityTransform(), position: [0, 0, 0] },
-      geometry: { type: "box", size },
-      metadata: { name: type },
-    });
-    setDocument(next);
+  const addPrimitive = (
+    kind: "box" | "wall" | "cylinder" | "group",
+  ) => {
+    const id = createId(kind);
+    if (kind === "group") {
+      setDocument(
+        addObject(document, {
+          id,
+          type: "group",
+          transform: identityTransform(),
+          children: [],
+          metadata: { name: id },
+        }),
+      );
+      setSelectedIds([id]);
+      return;
+    }
+    if (kind === "wall") {
+      setDocument(
+        addObject(document, {
+          id,
+          type: "wall",
+          transform: identityTransform(),
+          geometry: {
+            type: "wall",
+            path: {
+              type: "polyline",
+              points: [
+                [0, 0, 0],
+                [2000, 0, 0],
+              ],
+              closed: false,
+            },
+            thickness: 150,
+            height: { start: 2700, end: 2700 },
+            baseZ: 0,
+          },
+          metadata: { name: id },
+        }),
+      );
+      setSelectedIds([id]);
+      return;
+    }
+    if (kind === "cylinder") {
+      setDocument(
+        addObject(document, {
+          id,
+          type: "object",
+          transform: { ...identityTransform(), position: [0, 0, 0] },
+          geometry: { type: "cylinder", radius: 200, height: 800, radialSegments: 24 },
+          metadata: { name: id },
+        }),
+      );
+      setSelectedIds([id]);
+      return;
+    }
+    setDocument(
+      addObject(document, {
+        id,
+        type: "object",
+        transform: { ...identityTransform(), position: [0, 0, 0] },
+        geometry: { type: "box", size: [1000, 1000, 1000] },
+        metadata: { name: id },
+      }),
+    );
     setSelectedIds([id]);
-    if (mobile) setRightOpen(true);
   };
 
   const selectObject = (id?: ObjectId) => {
     setSelectedIds(id ? [id] : []);
-    if (mobile && id) {
-      setRightOpen(true);
-      setLeftOpen(false);
-    }
   };
 
   const euler = selected ? eulerDegFromQuat(selected.transform.rotation) : [0, 0, 0];
@@ -134,25 +186,22 @@ export function PlanaEditor({
           </button>
           <div className="plana-brand-text">
             <span className="plana-mark">Plana</span>
-            <span className="plana-subtitle">Apartment · 33 m²</span>
+            <span className="plana-subtitle">Scene editor</span>
           </div>
         </div>
 
         <div className="plana-toolbar">
-          <button type="button" onClick={() => addFurniture("sofa", [2200, 900, 750])}>
-            Sofa
+          <button type="button" onClick={() => addPrimitive("box")}>
+            Box
           </button>
-          <button type="button" onClick={() => addFurniture("table", [1200, 700, 750])}>
-            Table
+          <button type="button" onClick={() => addPrimitive("wall")}>
+            Wall
           </button>
-          <button type="button" onClick={() => addFurniture("chair", [450, 450, 900])}>
-            Chair
+          <button type="button" onClick={() => addPrimitive("cylinder")}>
+            Cylinder
           </button>
-          <button type="button" onClick={() => addFurniture("bed", [2000, 1600, 550])}>
-            Bed
-          </button>
-          <button type="button" onClick={() => addFurniture("smart-switch", [80, 30, 120])}>
-            Switch
+          <button type="button" onClick={() => addPrimitive("group")}>
+            Group
           </button>
           <div className="plana-sep" />
           <button
@@ -167,6 +216,22 @@ export function PlanaEditor({
           >
             Delete
           </button>
+          <label className="plana-file-btn">
+            Import
+            <input
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                const text = await file.text();
+                setDocument(deserialize(text));
+                setSelectedIds([]);
+                event.target.value = "";
+              }}
+            />
+          </label>
           <button type="button" className="plana-btn-primary" onClick={exportJson}>
             Export
           </button>
@@ -258,7 +323,16 @@ export function PlanaEditor({
                 </label>
                 <label>
                   Type
-                  <input value={selected.type} readOnly />
+                  <input
+                    value={selected.type}
+                    onChange={(event) =>
+                      setDocument(
+                        updateObject(document, selected.id, {
+                          type: event.target.value || "object",
+                        }),
+                      )
+                    }
+                  />
                 </label>
                 <div className="plana-section-label">Position (mm)</div>
                 <div className="plana-grid3">

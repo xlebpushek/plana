@@ -35,24 +35,30 @@ export type HatchStyle = z.infer<typeof HatchStyleSchema>;
 export type ObjectStyle = z.infer<typeof ObjectStyleSchema>;
 
 export const defaultFaceStyle = (): FaceStyle => ({
-  color: rgba(120, 160, 255, 1),
-  opacity: 0.12,
+  color: rgba(161, 161, 170, 1),
+  opacity: 0.08,
   visible: true,
 });
 
 export const defaultEdgeStyle = (): EdgeStyle => ({
-  color: rgba(79, 124, 255, 1),
+  color: rgba(212, 212, 216, 1),
   width: 1,
   opacity: 1,
   visible: true,
 });
 
+/** CAD defaults: walls = edges only; furniture muted; openings cooler. */
 export function defaultStyleForType(type: string): ObjectStyle {
   switch (type) {
     case "wall":
       return {
-        face: { color: rgba(96, 165, 250, 1), opacity: 0.14, visible: true },
-        edge: { color: rgba(59, 130, 246, 1), width: 1.25, opacity: 1, visible: true },
+        face: { color: rgba(96, 165, 250, 1), opacity: 0, visible: true },
+        edge: { color: rgba(96, 165, 250, 1), width: 1.4, opacity: 1, visible: true },
+      };
+    case "floor":
+      return {
+        face: { color: rgba(63, 63, 70, 1), opacity: 0.06, visible: true },
+        edge: { color: rgba(82, 82, 91, 1), width: 1, opacity: 0.55, visible: true },
       };
     case "furniture":
     case "table":
@@ -60,26 +66,25 @@ export function defaultStyleForType(type: string): ObjectStyle {
     case "bed":
     case "chair":
       return {
-        face: { color: rgba(74, 222, 128, 1), opacity: 0.16, visible: true },
-        edge: { color: rgba(34, 197, 94, 1), width: 1.25, opacity: 1, visible: true },
+        face: { color: rgba(212, 212, 216, 1), opacity: 0.1, visible: true },
+        edge: { color: rgba(228, 228, 231, 1), width: 1.15, opacity: 0.95, visible: true },
       };
     case "door":
+      return {
+        face: { color: rgba(251, 191, 36, 1), opacity: 0.08, visible: true },
+        edge: { color: rgba(252, 211, 77, 1), width: 1.2, opacity: 1, visible: true },
+      };
     case "window":
       return {
-        face: { color: rgba(251, 191, 36, 1), opacity: 0.18, visible: true },
-        edge: { color: rgba(245, 158, 11, 1), width: 1.25, opacity: 1, visible: true },
-      };
-    case "floor":
-      return {
-        face: { color: rgba(161, 161, 170, 1), opacity: 0.1, visible: true },
-        edge: { color: rgba(113, 113, 122, 1), width: 1, opacity: 0.8, visible: true },
+        face: { color: rgba(125, 211, 252, 1), opacity: 0.06, visible: true },
+        edge: { color: rgba(56, 189, 248, 1), width: 1.15, opacity: 1, visible: true },
       };
     case "smart-switch":
     case "socket":
     case "light":
       return {
-        face: { color: rgba(251, 146, 60, 1), opacity: 0.2, visible: true },
-        edge: { color: rgba(249, 115, 22, 1), width: 1.25, opacity: 1, visible: true },
+        face: { color: rgba(251, 146, 60, 1), opacity: 0.12, visible: true },
+        edge: { color: rgba(253, 186, 116, 1), width: 1.2, opacity: 1, visible: true },
       };
     default:
       return {

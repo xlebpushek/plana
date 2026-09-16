@@ -37,6 +37,10 @@ export function createDocument(): PlanaDocument {
   };
 }
 
+export function createId(prefix = "obj"): string {
+  return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
 export function getObject(document: PlanaDocument, id: ObjectId): PlanaObject | undefined {
   return document.objects[id];
 }

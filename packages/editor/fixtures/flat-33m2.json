@@ -1,0 +1,2482 @@
+{
+  "version": 1,
+  "units": "mm",
+  "root": "root",
+  "objects": {
+    "root": {
+      "id": "root",
+      "type": "group",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "apartment"
+      ]
+    },
+    "apartment": {
+      "id": "apartment",
+      "type": "group",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "walls",
+        "openings",
+        "corridor",
+        "bathroom",
+        "kitchen",
+        "living"
+      ],
+      "metadata": {
+        "name": "Квартира"
+      },
+      "parent": "root"
+    },
+    "walls": {
+      "id": "walls",
+      "type": "group",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "wall-north-0",
+        "wall-south-0",
+        "wall-west-north-0",
+        "wall-west-north-1",
+        "wall-west-living-0",
+        "wall-east-kitchen-0",
+        "wall-east-kitchen-1",
+        "wall-east-living-0",
+        "wall-east-living-1",
+        "wall-bath-west-0",
+        "wall-bath-east-0",
+        "wall-bath-south-0",
+        "wall-bath-south-1",
+        "wall-partition-0",
+        "wall-partition-1"
+      ],
+      "metadata": {
+        "name": "Стены"
+      },
+      "parent": "apartment"
+    },
+    "wall-north-0": {
+      "id": "wall-north-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              0,
+              75,
+              0
+            ],
+            [
+              6420,
+              75,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Север"
+      },
+      "parent": "walls"
+    },
+    "wall-south-0": {
+      "id": "wall-south-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              0,
+              5860,
+              0
+            ],
+            [
+              6420,
+              5860,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Юг"
+      },
+      "parent": "walls"
+    },
+    "wall-west-north-0": {
+      "id": "wall-west-north-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              75,
+              0,
+              0
+            ],
+            [
+              75,
+              1230,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Запад (коридор)"
+      },
+      "parent": "walls"
+    },
+    "wall-west-north-1": {
+      "id": "wall-west-north-1",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              75,
+              2030.0000000000002,
+              0
+            ],
+            [
+              75,
+              2530,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Запад (коридор)"
+      },
+      "parent": "walls"
+    },
+    "wall-west-living-0": {
+      "id": "wall-west-living-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              75,
+              2530,
+              0
+            ],
+            [
+              75,
+              5935,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Запад (гостиная)"
+      },
+      "parent": "walls"
+    },
+    "wall-east-kitchen-0": {
+      "id": "wall-east-kitchen-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              6345,
+              0,
+              0
+            ],
+            [
+              6345,
+              290,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Восток (кухня)"
+      },
+      "parent": "walls"
+    },
+    "wall-east-kitchen-1": {
+      "id": "wall-east-kitchen-1",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              6345,
+              1610,
+              0
+            ],
+            [
+              6345,
+              2530,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Восток (кухня)"
+      },
+      "parent": "walls"
+    },
+    "wall-east-living-0": {
+      "id": "wall-east-living-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              6345,
+              2530,
+              0
+            ],
+            [
+              6345,
+              3114.9999999999995,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Восток (гостиная)"
+      },
+      "parent": "walls"
+    },
+    "wall-east-living-1": {
+      "id": "wall-east-living-1",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              6345,
+              5215,
+              0
+            ],
+            [
+              6345,
+              5935,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Восток (гостиная)"
+      },
+      "parent": "walls"
+    },
+    "wall-bath-west-0": {
+      "id": "wall-bath-west-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              1460,
+              0,
+              0
+            ],
+            [
+              1460,
+              1410,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "С/у запад"
+      },
+      "parent": "walls"
+    },
+    "wall-bath-east-0": {
+      "id": "wall-bath-east-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              3780,
+              0,
+              0
+            ],
+            [
+              3780,
+              1410,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "С/у восток"
+      },
+      "parent": "walls"
+    },
+    "wall-bath-south-0": {
+      "id": "wall-bath-south-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              1385,
+              1335,
+              0
+            ],
+            [
+              2265,
+              1335,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "С/у юг"
+      },
+      "parent": "walls"
+    },
+    "wall-bath-south-1": {
+      "id": "wall-bath-south-1",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              3065.0000000000005,
+              1335,
+              0
+            ],
+            [
+              3855.0000000000005,
+              1335,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "С/у юг"
+      },
+      "parent": "walls"
+    },
+    "wall-partition-0": {
+      "id": "wall-partition-0",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              0,
+              2530,
+              0
+            ],
+            [
+              575,
+              2530,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Перегородка"
+      },
+      "parent": "walls"
+    },
+    "wall-partition-1": {
+      "id": "wall-partition-1",
+      "type": "wall",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "wall",
+        "path": {
+          "type": "polyline",
+          "points": [
+            [
+              1415,
+              2530,
+              0
+            ],
+            [
+              6420,
+              2530,
+              0
+            ]
+          ],
+          "closed": false
+        },
+        "thickness": 150,
+        "height": {
+          "start": 2470,
+          "end": 2470
+        },
+        "baseZ": 0
+      },
+      "metadata": {
+        "name": "Перегородка"
+      },
+      "parent": "walls"
+    },
+    "openings": {
+      "id": "openings",
+      "type": "group",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "door-entry",
+        "door-partition",
+        "door-bath",
+        "door-living-east",
+        "window-kitchen",
+        "window-living"
+      ],
+      "metadata": {
+        "name": "Проёмы"
+      },
+      "parent": "apartment"
+    },
+    "door-entry": {
+      "id": "door-entry",
+      "type": "door",
+      "transform": {
+        "position": [
+          75,
+          1630,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          150,
+          800,
+          2040
+        ]
+      },
+      "metadata": {
+        "name": "дверь"
+      },
+      "parent": "openings"
+    },
+    "door-partition": {
+      "id": "door-partition",
+      "type": "door",
+      "transform": {
+        "position": [
+          995,
+          2530,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          840,
+          150,
+          2040
+        ]
+      },
+      "metadata": {
+        "name": "дверь"
+      },
+      "parent": "openings"
+    },
+    "door-bath": {
+      "id": "door-bath",
+      "type": "door",
+      "transform": {
+        "position": [
+          2665,
+          1335,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          800,
+          150,
+          2040
+        ]
+      },
+      "metadata": {
+        "name": "дверь"
+      },
+      "parent": "openings"
+    },
+    "door-living-east": {
+      "id": "door-living-east",
+      "type": "door",
+      "transform": {
+        "position": [
+          6345,
+          4865,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          150,
+          700,
+          2260
+        ]
+      },
+      "metadata": {
+        "name": "дверь"
+      },
+      "parent": "openings"
+    },
+    "window-kitchen": {
+      "id": "window-kitchen",
+      "type": "window",
+      "transform": {
+        "position": [
+          6345,
+          950,
+          800
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          150,
+          1320,
+          1460
+        ]
+      },
+      "metadata": {
+        "name": "окно"
+      },
+      "parent": "openings"
+    },
+    "window-living": {
+      "id": "window-living",
+      "type": "window",
+      "transform": {
+        "position": [
+          6345,
+          3815,
+          800
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          150,
+          1400,
+          1460
+        ]
+      },
+      "metadata": {
+        "name": "окно"
+      },
+      "parent": "openings"
+    },
+    "corridor": {
+      "id": "corridor",
+      "type": "group",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "floor-corridor-a",
+        "floor-corridor-b"
+      ],
+      "metadata": {
+        "name": "Коридор"
+      },
+      "parent": "apartment"
+    },
+    "floor-corridor-a": {
+      "id": "floor-corridor-a",
+      "type": "floor",
+      "transform": {
+        "position": [
+          767.5000000000001,
+          1302.5,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          1235,
+          2305,
+          80
+        ]
+      },
+      "metadata": {
+        "name": "Пол коридор"
+      },
+      "parent": "corridor"
+    },
+    "floor-corridor-b": {
+      "id": "floor-corridor-b",
+      "type": "floor",
+      "transform": {
+        "position": [
+          2620,
+          1932.4999999999998,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          2470,
+          1045,
+          80
+        ]
+      },
+      "metadata": {
+        "name": "Пол коридор (рукав)"
+      },
+      "parent": "corridor"
+    },
+    "bathroom": {
+      "id": "bathroom",
+      "type": "group",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "floor-bath"
+      ],
+      "metadata": {
+        "name": "Сан-узел"
+      },
+      "parent": "apartment"
+    },
+    "floor-bath": {
+      "id": "floor-bath",
+      "type": "floor",
+      "transform": {
+        "position": [
+          2620,
+          705.0000000000001,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          2170,
+          1110,
+          80
+        ]
+      },
+      "metadata": {
+        "name": "Пол с/у"
+      },
+      "parent": "bathroom"
+    },
+    "kitchen": {
+      "id": "kitchen",
+      "type": "group",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "floor-kitchen"
+      ],
+      "metadata": {
+        "name": "Кухня"
+      },
+      "parent": "apartment"
+    },
+    "floor-kitchen": {
+      "id": "floor-kitchen",
+      "type": "floor",
+      "transform": {
+        "position": [
+          5062.5,
+          1302.5,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          2415,
+          2305,
+          80
+        ]
+      },
+      "metadata": {
+        "name": "Пол кухня"
+      },
+      "parent": "kitchen"
+    },
+    "living": {
+      "id": "living",
+      "type": "group",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "floor-living",
+        "shelving"
+      ],
+      "metadata": {
+        "name": "Гостиная"
+      },
+      "parent": "apartment"
+    },
+    "floor-living": {
+      "id": "floor-living",
+      "type": "floor",
+      "transform": {
+        "position": [
+          3210,
+          4195,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          6120,
+          3180,
+          80
+        ]
+      },
+      "metadata": {
+        "name": "Пол гостиная"
+      },
+      "parent": "living"
+    },
+    "shelving": {
+      "id": "shelving",
+      "type": "group",
+      "transform": {
+        "position": [
+          3829,
+          3587,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "children": [
+        "sh-h-0",
+        "sh-h-1",
+        "sh-h-2",
+        "sh-h-3",
+        "sh-h-4",
+        "sh-h-5",
+        "sh-n",
+        "sh-s",
+        "sh-v-r0c0",
+        "sh-v-r0c1",
+        "sh-v-r0c2",
+        "sh-v-r0c3",
+        "sh-v-r1c0",
+        "sh-v-r1c1",
+        "sh-v-r1c2",
+        "sh-v-r1c3",
+        "sh-v-r2c0",
+        "sh-v-r2c1",
+        "sh-v-r2c2",
+        "sh-v-r2c3",
+        "sh-v-r3c0",
+        "sh-v-r3c1",
+        "sh-v-r3c2",
+        "sh-v-r3c3",
+        "sh-v-r4c0",
+        "sh-v-r4c1",
+        "sh-v-r4c2",
+        "sh-v-r4c3",
+        "mirror-low",
+        "mirror-up"
+      ],
+      "metadata": {
+        "name": "стеллаж гостиная"
+      },
+      "parent": "living"
+    },
+    "sh-h-0": {
+      "id": "sh-h-0",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          0,
+          80
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          1964,
+          50
+        ]
+      },
+      "metadata": {
+        "name": "полка низ 50"
+      },
+      "parent": "shelving"
+    },
+    "sh-h-1": {
+      "id": "sh-h-1",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          0,
+          490
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          1964,
+          16
+        ]
+      },
+      "metadata": {
+        "name": "полка 16 #1"
+      },
+      "parent": "shelving"
+    },
+    "sh-h-2": {
+      "id": "sh-h-2",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          0,
+          866
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          1964,
+          16
+        ]
+      },
+      "metadata": {
+        "name": "полка 16 #2"
+      },
+      "parent": "shelving"
+    },
+    "sh-h-3": {
+      "id": "sh-h-3",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          0,
+          1242
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          1964,
+          16
+        ]
+      },
+      "metadata": {
+        "name": "полка 16 #3"
+      },
+      "parent": "shelving"
+    },
+    "sh-h-4": {
+      "id": "sh-h-4",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          0,
+          1618
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          1964,
+          16
+        ]
+      },
+      "metadata": {
+        "name": "полка 16 #4"
+      },
+      "parent": "shelving"
+    },
+    "sh-h-5": {
+      "id": "sh-h-5",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          0,
+          1994
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          1964,
+          50
+        ]
+      },
+      "metadata": {
+        "name": "полка верх 50"
+      },
+      "parent": "shelving"
+    },
+    "sh-n": {
+      "id": "sh-n",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -957,
+          130
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          50,
+          1864
+        ]
+      },
+      "metadata": {
+        "name": "стойка 50 север"
+      },
+      "parent": "shelving"
+    },
+    "sh-s": {
+      "id": "sh-s",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          957,
+          130
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          50,
+          1864
+        ]
+      },
+      "metadata": {
+        "name": "стойка 50 юг"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r0c0": {
+      "id": "sh-v-r0c0",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -564,
+          130
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r1c1"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r0c1": {
+      "id": "sh-v-r0c1",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -188,
+          130
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r1c2"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r0c2": {
+      "id": "sh-v-r0c2",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          188,
+          130
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r1c3"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r0c3": {
+      "id": "sh-v-r0c3",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          564,
+          130
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r1c4"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r1c0": {
+      "id": "sh-v-r1c0",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -564,
+          506
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r2c1"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r1c1": {
+      "id": "sh-v-r1c1",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -188,
+          506
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r2c2"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r1c2": {
+      "id": "sh-v-r1c2",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          188,
+          506
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r2c3"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r1c3": {
+      "id": "sh-v-r1c3",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          564,
+          506
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r2c4"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r2c0": {
+      "id": "sh-v-r2c0",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -564,
+          882
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r3c1"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r2c1": {
+      "id": "sh-v-r2c1",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -188,
+          882
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r3c2"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r2c2": {
+      "id": "sh-v-r2c2",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          188,
+          882
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r3c3"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r2c3": {
+      "id": "sh-v-r2c3",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          564,
+          882
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r3c4"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r3c0": {
+      "id": "sh-v-r3c0",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -564,
+          1258
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r4c1"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r3c1": {
+      "id": "sh-v-r3c1",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -188,
+          1258
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r4c2"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r3c2": {
+      "id": "sh-v-r3c2",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          188,
+          1258
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r4c3"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r3c3": {
+      "id": "sh-v-r3c3",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          564,
+          1258
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r4c4"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r4c0": {
+      "id": "sh-v-r4c0",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -564,
+          1634
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r5c1"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r4c1": {
+      "id": "sh-v-r4c1",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          -188,
+          1634
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r5c2"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r4c2": {
+      "id": "sh-v-r4c2",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          188,
+          1634
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r5c3"
+      },
+      "parent": "shelving"
+    },
+    "sh-v-r4c3": {
+      "id": "sh-v-r4c3",
+      "type": "furniture",
+      "transform": {
+        "position": [
+          0,
+          564,
+          1634
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          392,
+          16,
+          360
+        ]
+      },
+      "metadata": {
+        "name": "стойка 16 r5c4"
+      },
+      "parent": "shelving"
+    },
+    "mirror-low": {
+      "id": "mirror-low",
+      "type": "window",
+      "transform": {
+        "position": [
+          0,
+          984,
+          350
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          370,
+          4,
+          370
+        ]
+      },
+      "metadata": {
+        "name": "зеркало нижнее"
+      },
+      "parent": "shelving"
+    },
+    "mirror-up": {
+      "id": "mirror-up",
+      "type": "window",
+      "transform": {
+        "position": [
+          0,
+          984,
+          930
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "geometry": {
+        "type": "box",
+        "size": [
+          370,
+          4,
+          900
+        ]
+      },
+      "metadata": {
+        "name": "зеркало верхнее"
+      },
+      "parent": "shelving"
+    }
+  },
+  "meta": {
+    "name": "Квартира (~33 м²)",
+    "source": "plana.v2.d/engine/presets/flat.ts"
+  }
+}

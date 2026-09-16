@@ -84,12 +84,23 @@
   display: none;
 }
 
-.plana-sep {
-  width: 1px;
-  height: 18px;
-  background: var(--border);
+.plana-file-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
   flex: 0 0 auto;
 }
+
+.plana-file-btn:hover {
+  background: var(--accent);
+}
+
 
 .plana-icon-btn,
 .plana-toolbar button,
@@ -346,44 +357,47 @@
 }
 
 @media (max-width: 900px) {
-  .plana-layout {
-    display: block;
-  }
-
-  .plana-viewport {
-    position: absolute;
-    inset: 0;
-  }
-
-  .plana-layout {
-    position: relative;
+  .plana-editor.is-mobile {
+    grid-template-rows: 48px 1fr 26px;
   }
 
   .plana-editor.is-mobile .plana-layout {
+    display: block;
+    position: relative;
     min-height: 0;
+    height: 100%;
   }
 
-  .plana-panel--left,
-  .plana-panel--right {
+  .plana-editor.is-mobile .plana-viewport {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .plana-editor.is-mobile .plana-panel--left,
+  .plana-editor.is-mobile .plana-panel--right {
     position: absolute;
     top: 0;
     bottom: 0;
-    width: min(88vw, 340px);
+    width: min(86vw, 320px);
     z-index: 40;
     border: 0;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    background: #0a0a0b;
   }
 
-  .plana-panel--left {
+  .plana-editor.is-mobile .plana-panel--left {
     left: 0;
     border-right: 1px solid var(--border);
-    animation: plana-slide-left 0.18s ease;
   }
 
-  .plana-panel--right {
+  .plana-editor.is-mobile .plana-panel--right {
     right: 0;
     border-left: 1px solid var(--border);
-    animation: plana-slide-right 0.18s ease;
+  }
+
+  .plana-editor.is-mobile .plana-backdrop {
+    z-index: 30;
   }
 
   .plana-subtitle {
@@ -401,27 +415,10 @@
   .plana-statusbar span:nth-child(2) {
     display: none;
   }
-}
 
-@keyframes plana-slide-left {
-  from {
-    transform: translateX(-12px);
-    opacity: 0.6;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes plana-slide-right {
-  from {
-    transform: translateX(12px);
-    opacity: 0.6;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
+  .plana-topbar {
+    padding: 6px 8px;
+    gap: 6px;
   }
 }
 
@@ -432,6 +429,6 @@
   }
 
   .plana-grid3 {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }

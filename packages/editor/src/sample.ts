@@ -1,3 +1,11 @@
+/**
+ * Example scene ported from plana.v2.d/engine/presets/flat.ts
+ * (real ~33 m² flat). This is demo *document data*, not product presets.
+ *
+ * Flat plan space: X east, Z south, Y up (meters).
+ * Core document: XY floor, Z up (millimetres).
+ */
+
 import {
   addObject,
   createDocument,
@@ -7,21 +15,49 @@ import {
   type Transform,
 } from "@plana/core";
 
-type Doc = PlanaDocument;
+const MM = 1000;
+const WALL_H = 2470;
+const WALL_T = 150;
+const FLOOR_T = 80;
 
 const t = (x: number, y: number, z: number): Transform => ({
   ...identityTransform(),
   position: [x, y, z],
 });
 
-const wall = (
+const group = (id: string, name: string, x = 0, y = 0, z = 0): PlanaObject => ({
+  id,
+  type: "group",
+  transform: t(x, y, z),
+  children: [],
+  metadata: { name },
+});
+
+const box = (
+  id: string,
+  type: string,
+  x: number,
+  y: number,
+  z: number,
+  sx: number,
+  sy: number,
+  sz: number,
+  name: string,
+): PlanaObject => ({
+  id,
+  type,
+  transform: t(x, y, z),
+  geometry: { type: "box", size: [sx, sy, sz] },
+  metadata: { name },
+});
+
+const wallSeg = (
   id: string,
   x1: number,
   y1: number,
   x2: number,
   y2: number,
   name: string,
-  height = 2700,
 ): PlanaObject => ({
   id,
   type: "wall",
@@ -36,249 +72,303 @@ const wall = (
       ],
       closed: false,
     },
-    thickness: 150,
-    height: { start: height, end: height },
+    thickness: WALL_T,
+    height: { start: WALL_H, end: WALL_H },
     baseZ: 0,
   },
   metadata: { name },
 });
 
-const box = (
-  id: string,
-  type: string,
-  x: number,
-  y: number,
-  z: number,
-  sx: number,
-  sy: number,
-  sz: number,
-  name: string,
-  style?: PlanaObject["style"],
-): PlanaObject => ({
-  id,
-  type,
-  transform: t(x, y, z),
-  geometry: { type: "box", size: [sx, sy, sz] },
-  metadata: { name },
-  style,
-});
+type Cutout = { offset: number; width: number };
+type WallSpec = {
+  id: string;
+  name: string;
+  along: "x" | "z";
+  origin: number;
+  position: number;
+  length: number;
+  cutouts?: Cutout[];
+};
 
-const group = (id: string, name: string, x = 0, y = 0, z = 0): PlanaObject => ({
-  id,
-  type: "group",
-  transform: t(x, y, z),
-  children: [],
-  metadata: { name },
-});
-
-function add(doc: Doc, object: PlanaObject, parent: string): Doc {
+function add(doc: PlanaDocument, object: PlanaObject, parent: string): PlanaDocument {
   return addObject(doc, object, parent);
 }
 
-function addSofa(doc: Doc, parent: string): Doc {
-  doc = add(doc, group("sofa", "Диван", -1400, 1900, 0), parent);
-  doc = add(doc, box("sofa-base", "sofa", 0, 0, 0, 2200, 860, 280, "Основание"), "sofa");
-  doc = add(doc, box("sofa-back", "sofa", 0, 320, 280, 2200, 180, 520, "Спинка"), "sofa");
-  doc = add(doc, box("sofa-arm-l", "sofa", -1010, 0, 280, 180, 860, 420, "Подлокотник L"), "sofa");
-  doc = add(doc, box("sofa-arm-r", "sofa", 1010, 0, 280, 180, 860, 420, "Подлокотник R"), "sofa");
-  doc = add(doc, box("sofa-seat-l", "sofa", -520, -40, 280, 980, 620, 120, "Подушка L"), "sofa");
-  doc = add(doc, box("sofa-seat-r", "sofa", 520, -40, 280, 980, 620, 120, "Подушка R"), "sofa");
-  doc = add(doc, box("sofa-leg-1", "furniture", -980, -360, 0, 60, 60, 40, "Ножка"), "sofa");
-  doc = add(doc, box("sofa-leg-2", "furniture", 980, -360, 0, 60, 60, 40, "Ножка"), "sofa");
-  doc = add(doc, box("sofa-leg-3", "furniture", -980, 360, 0, 60, 60, 40, "Ножка"), "sofa");
-  doc = add(doc, box("sofa-leg-4", "furniture", 980, 360, 0, 60, 60, 40, "Ножка"), "sofa");
-  return doc;
+/** Split a centerline wall by cutout gaps (offset = start along wall from origin). */
+function wallPieces(spec: WallSpec): PlanaObject[] {
+  const cuts = [...(spec.cutouts ?? [])].sort((a, b) => a.offset - b.offset);
+  const ranges: Array<[number, number]> = [];
+  let cursor = 0;
+  for (const cut of cuts) {
+    if (cut.offset > cursor + 1e-6) ranges.push([cursor, cut.offset]);
+    cursor = Math.max(cursor, cut.offset + cut.width);
+  }
+  if (cursor < spec.length - 1e-6) ranges.push([cursor, spec.length]);
+
+  return ranges.map(([a, b], index) => {
+    const id = `${spec.id}-${index}`;
+    if (spec.along === "x") {
+      const y = spec.position * MM;
+      return wallSeg(id, (spec.origin + a) * MM, y, (spec.origin + b) * MM, y, spec.name);
+    }
+    const x = spec.position * MM;
+    return wallSeg(id, x, (spec.origin + a) * MM, x, (spec.origin + b) * MM, spec.name);
+  });
 }
 
-function addTable(doc: Doc, parent: string, id: string, name: string, x: number, y: number): Doc {
-  doc = add(doc, group(id, name, x, y, 0), parent);
-  doc = add(doc, box(`${id}-top`, "table", 0, 0, 720, 1200, 700, 40, "Столешница"), id);
-  doc = add(doc, box(`${id}-leg-1`, "furniture", -520, -280, 0, 60, 60, 720, "Ножка"), id);
-  doc = add(doc, box(`${id}-leg-2`, "furniture", 520, -280, 0, 60, 60, 720, "Ножка"), id);
-  doc = add(doc, box(`${id}-leg-3`, "furniture", -520, 280, 0, 60, 60, 720, "Ножка"), id);
-  doc = add(doc, box(`${id}-leg-4`, "furniture", 520, 280, 0, 60, 60, 720, "Ножка"), id);
-  return doc;
-}
+const WALLS: WallSpec[] = [
+  { id: "wall-north", name: "Север", along: "x", origin: 0, position: 0.075, length: 6.42 },
+  { id: "wall-south", name: "Юг", along: "x", origin: 0, position: 5.86, length: 6.42 },
+  {
+    id: "wall-west-north",
+    name: "Запад (коридор)",
+    along: "z",
+    origin: 0,
+    position: 0.075,
+    length: 2.53,
+    cutouts: [{ offset: 1.23, width: 0.8 }],
+  },
+  {
+    id: "wall-west-living",
+    name: "Запад (гостиная)",
+    along: "z",
+    origin: 2.53,
+    position: 0.075,
+    length: 3.405,
+  },
+  {
+    id: "wall-east-kitchen",
+    name: "Восток (кухня)",
+    along: "z",
+    origin: 0,
+    position: 6.345,
+    length: 2.53,
+    cutouts: [{ offset: 0.29, width: 1.32 }],
+  },
+  {
+    id: "wall-east-living",
+    name: "Восток (гостиная)",
+    along: "z",
+    origin: 2.53,
+    position: 6.345,
+    length: 3.405,
+    cutouts: [
+      { offset: 0.585, width: 1.4 },
+      { offset: 1.985, width: 0.7 },
+    ],
+  },
+  { id: "wall-bath-west", name: "С/у запад", along: "z", origin: 0, position: 1.46, length: 1.41 },
+  { id: "wall-bath-east", name: "С/у восток", along: "z", origin: 0, position: 3.78, length: 1.41 },
+  {
+    id: "wall-bath-south",
+    name: "С/у юг",
+    along: "x",
+    origin: 1.385,
+    position: 1.335,
+    length: 2.47,
+    cutouts: [{ offset: 0.88, width: 0.8 }],
+  },
+  {
+    id: "wall-partition",
+    name: "Перегородка",
+    along: "x",
+    origin: 0,
+    position: 2.53,
+    length: 6.42,
+    cutouts: [{ offset: 0.575, width: 0.84 }],
+  },
+];
 
-function addShelving(doc: Doc, parent: string): Doc {
-  // Living shelving ~392×1964×1964 near east side of living
-  doc = add(doc, group("shelving", "Стеллаж", 620, 1060, 0), parent);
-  doc = add(doc, box("shelving-left", "furniture", -176, 0, 0, 40, 1964, 1964, "Стойка L"), "shelving");
-  doc = add(doc, box("shelving-right", "furniture", 176, 0, 0, 40, 1964, 1964, "Стойка R"), "shelving");
-  doc = add(doc, box("shelving-back", "furniture", 0, 952, 0, 352, 40, 1964, "Задняя стенка"), "shelving");
-  doc = add(doc, box("shelving-shelf-1", "furniture", 0, 0, 40, 352, 1880, 28, "Полка 1"), "shelving");
-  doc = add(doc, box("shelving-shelf-2", "furniture", 0, 0, 420, 352, 1880, 28, "Полка 2"), "shelving");
-  doc = add(doc, box("shelving-shelf-3", "furniture", 0, 0, 820, 352, 1880, 28, "Полка 3"), "shelving");
-  doc = add(doc, box("shelving-shelf-4", "furniture", 0, 0, 1220, 352, 1880, 28, "Полка 4"), "shelving");
-  doc = add(doc, box("shelving-shelf-5", "furniture", 0, 0, 1620, 352, 1880, 28, "Полка 5"), "shelving");
-  doc = add(doc, box("shelving-top", "furniture", 0, 0, 1936, 392, 1964, 28, "Верх"), "shelving");
-  doc = add(
-    doc,
-    box("shelving-box-1", "furniture", -40, -400, 448, 180, 280, 220, "Короб"),
-    "shelving",
-  );
-  doc = add(
-    doc,
-    box("shelving-box-2", "furniture", 40, 350, 848, 160, 240, 180, "Короб"),
-    "shelving",
-  );
-  return doc;
-}
-
-function addDoor(
-  doc: Doc,
-  parent: string,
+function floorSlab(
   id: string,
   name: string,
-  x: number,
-  y: number,
-  z: number,
-  sx: number,
-  sy: number,
-  sz: number,
-): Doc {
-  doc = add(doc, group(id, name, x, y, z), parent);
-  doc = add(doc, box(`${id}-frame`, "door", 0, 0, 0, sx + 80, sy + 40, sz + 40, "Коробка"), id);
-  doc = add(
-    doc,
-    box(`${id}-leaf`, "door", 0, 0, 20, Math.max(40, sx - 20), Math.max(40, sy - 20), sz - 20, "Полотно"),
+  x0: number,
+  z0: number,
+  width: number,
+  depth: number,
+): PlanaObject {
+  return box(
     id,
+    "floor",
+    (x0 + width / 2) * MM,
+    (z0 + depth / 2) * MM,
+    0,
+    width * MM,
+    depth * MM,
+    FLOOR_T,
+    name,
   );
-  doc = add(
-    doc,
-    box(`${id}-handle`, "furniture", sx > sy ? -sx / 4 : 0, sy > sx ? -sy / 4 : 0, sz * 0.45, 20, 80, 20, "Ручка"),
-    id,
-  );
-  return doc;
 }
 
-function addWindow(
-  doc: Doc,
-  parent: string,
+function openingBox(
   id: string,
+  type: "door" | "window",
   name: string,
   x: number,
-  y: number,
   z: number,
-  sx: number,
-  sy: number,
-  sz: number,
-): Doc {
-  doc = add(doc, group(id, name, x, y, z), parent);
-  doc = add(doc, box(`${id}-frame`, "window", 0, 0, 0, sx, sy, sz, "Рама"), id);
-  doc = add(
-    doc,
-    box(`${id}-glass`, "window", 0, 0, 40, Math.max(20, sx - 60), Math.max(20, sy - 60), sz - 80, "Стекло", {
-      face: { color: { r: 125, g: 211, b: 252, a: 1 }, opacity: 0.22, visible: true },
-      edge: { color: { r: 56, g: 189, b: 248, a: 1 }, width: 1, opacity: 0.9, visible: true },
-    }),
-    id,
+  along: "x" | "z",
+  width: number,
+  height: number,
+  sill = 0,
+): PlanaObject {
+  const sx = along === "x" ? width * MM : WALL_T;
+  const sy = along === "z" ? width * MM : WALL_T;
+  return box(id, type, x * MM, z * MM, sill * MM, sx, sy, height * MM, name);
+}
+
+/** Living shelving 5×5 from flat.ts (xWest, zNorth of carcass). */
+function addShelving(doc: PlanaDocument, parent: string, xWest: number, zNorth: number): PlanaDocument {
+  const OUTER = 50;
+  const INNER = 16;
+  const CELL = 360;
+  const DEPTH = 392;
+  const COLS = 5;
+  const ROWS = 5;
+  const SPAN = OUTER * 2 + INNER * (COLS - 1) + CELL * COLS; // 1964
+  const xCenter = xWest * MM + DEPTH / 2;
+  const yCenter = zNorth * MM + SPAN / 2;
+  const y0 = FLOOR_T;
+
+  doc = add(doc, group("shelving", "стеллаж гостиная", xCenter, yCenter, 0), parent);
+
+  const local = (ax: number, ay: number, az: number) =>
+    [ax - xCenter, ay - yCenter, az] as const;
+
+  const push = (
+    id: string,
+    name: string,
+    cx: number,
+    cy: number,
+    cz: number,
+    w: number,
+    d: number,
+    h: number,
+    type = "furniture",
+  ) => {
+    const [lx, ly] = local(cx, cy, 0);
+    doc = add(doc, box(id, type, lx, ly, cz, w, d, h, name), "shelving");
+  };
+
+  const horiz: Array<{ bottom: number; thick: number; label: string }> = [
+    { bottom: y0, thick: OUTER, label: "полка низ 50" },
+  ];
+  let yCursor = y0 + OUTER;
+  for (let row = 0; row < ROWS - 1; row++) {
+    yCursor += CELL;
+    horiz.push({ bottom: yCursor, thick: INNER, label: `полка 16 #${row + 1}` });
+    yCursor += INNER;
+  }
+  yCursor += CELL;
+  horiz.push({ bottom: yCursor, thick: OUTER, label: "полка верх 50" });
+
+  horiz.forEach((h, i) => {
+    push(`sh-h-${i}`, h.label, xCenter, yCenter, h.bottom, DEPTH, SPAN, h.thick);
+  });
+
+  const sideHeight = SPAN - 2 * OUTER;
+  const sideCz = y0 + OUTER;
+  push("sh-n", "стойка 50 север", xCenter, zNorth * MM + OUTER / 2, sideCz, DEPTH, OUTER, sideHeight);
+  push(
+    "sh-s",
+    "стойка 50 юг",
+    xCenter,
+    zNorth * MM + SPAN - OUTER / 2,
+    sideCz,
+    DEPTH,
+    OUTER,
+    sideHeight,
   );
-  doc = add(doc, box(`${id}-mullion`, "window", 0, 0, 40, 30, Math.max(20, sy - 80), sz - 100, "Импост"), id);
-  doc = add(doc, box(`${id}-sill`, "window", 0, 0, -30, sx + 40, sy + 60, 40, "Подоконник"), id);
+
+  for (let row = 0; row < ROWS; row++) {
+    const cellY0 = y0 + OUTER + row * (CELL + INNER);
+    for (let col = 0; col < COLS - 1; col++) {
+      const zBoard = zNorth * MM + OUTER + (col + 1) * CELL + col * INNER;
+      push(
+        `sh-v-r${row}c${col}`,
+        `стойка 16 r${row + 1}c${col + 1}`,
+        xCenter,
+        zBoard + INNER / 2,
+        cellY0,
+        DEPTH,
+        INNER,
+        CELL,
+      );
+    }
+  }
+
+  const zSouthFace = zNorth * MM + SPAN;
+  const mirrorCz = zSouthFace + 2;
+  const lowerBottom = y0 + 270;
+  const upperBottom = lowerBottom + 370 + 210;
+  push("mirror-low", "зеркало нижнее", xCenter, mirrorCz, lowerBottom, 370, 4, 370, "window");
+  push("mirror-up", "зеркало верхнее", xCenter, mirrorCz, upperBottom, 370, 4, 900, "window");
+
   return doc;
 }
 
 export function createApartmentDocument(): PlanaDocument {
   let doc = createDocument();
+  doc = { ...doc, meta: { name: "Квартира (~33 м²)", source: "plana.v2.d/engine/presets/flat.ts" } };
 
-  doc = add(doc, group("apartment", "Квартира ~33 м²"), "root");
-
-  // Walls split around openings
+  doc = add(doc, group("apartment", "Квартира"), "root");
   doc = add(doc, group("walls", "Стены"), "apartment");
-  for (const item of [
-    wall("wall-north", -3210, -2890, 3210, -2890, "Север"),
-    wall("wall-south", -3210, 2890, 3210, 2890, "Юг"),
-    // west wall split for entry door (~800 opening around y=-1337)
-    wall("wall-west-n", -3135, -2967, -3135, -1737, "Запад (сев.)"),
-    wall("wall-west-s", -3135, -937, -3135, 2967, "Запад (юг)"),
-    // east wall continuous but windows sit in it visually
-    wall("wall-east", 3135, -2967, 3135, 2967, "Восток"),
-    wall("wall-bath-west", -1750, -2967, -1750, -1560, "С/у запад"),
-    wall("wall-bath-east", 570, -2967, 570, -1560, "С/у восток"),
-    // bath south split for door (~800 around x=-545)
-    wall("wall-bath-s-w", -1750, -1632, -945, -1632, "С/у юг L"),
-    wall("wall-bath-s-e", -145, -1632, 570, -1632, "С/у юг R"),
-    // partition split for door (~840 around x=-2215)
-    wall("wall-part-w", -3210, -438, -2635, -438, "Перегородка L"),
-    wall("wall-part-e", -1795, -438, 3210, -438, "Перегородка R"),
-  ]) {
-    doc = add(doc, item, "walls");
+  for (const spec of WALLS) {
+    for (const piece of wallPieces(spec)) doc = add(doc, piece, "walls");
   }
 
-  // Openings
   doc = add(doc, group("openings", "Проёмы"), "apartment");
-  doc = addDoor(doc, "openings", "door-entry", "Входная дверь", -3135, -1337, 0, 150, 800, 2040);
-  doc = addDoor(doc, "openings", "door-partition", "Дверь в гостиную", -2215, -438, 0, 840, 150, 2040);
-  doc = addDoor(doc, "openings", "door-bath", "Дверь с/у", -545, -1632, 0, 800, 150, 2040);
-  doc = addWindow(doc, "openings", "window-kitchen", "Окно кухни", 3135, -2017, 900, 150, 1320, 1460);
-  doc = addWindow(doc, "openings", "window-living", "Окно гостиной", 3135, 847, 900, 150, 1400, 1460);
-
-  // Corridor
-  doc = add(doc, group("corridor", "Коридор"), "apartment");
-  doc = add(doc, box("floor-corridor", "floor", -2442, -1665, 0, 1235, 2305, 40, "Пол коридора"), "corridor");
   doc = add(
     doc,
-    box("mirror", "furniture", -3000, -2000, 900, 40, 500, 900, "Зеркало"),
+    openingBox("door-entry", "door", "дверь", 0.075, 1.63, "z", 0.8, 2.04),
+    "openings",
+  );
+  doc = add(
+    doc,
+    openingBox("door-partition", "door", "дверь", 0.995, 2.53, "x", 0.84, 2.04),
+    "openings",
+  );
+  doc = add(
+    doc,
+    openingBox("door-bath", "door", "дверь", 2.665, 1.335, "x", 0.8, 2.04),
+    "openings",
+  );
+  doc = add(
+    doc,
+    openingBox("door-living-east", "door", "дверь", 6.345, 4.865, "z", 0.7, 2.26),
+    "openings",
+  );
+  doc = add(
+    doc,
+    openingBox("window-kitchen", "window", "окно", 6.345, 0.95, "z", 1.32, 1.46, 0.8),
+    "openings",
+  );
+  doc = add(
+    doc,
+    openingBox("window-living", "window", "окно", 6.345, 3.815, "z", 1.4, 1.46, 0.8),
+    "openings",
+  );
+
+  doc = add(doc, group("corridor", "Коридор"), "apartment");
+  doc = add(
+    doc,
+    floorSlab("floor-corridor-a", "Пол коридор", 0.15, 0.15, 1.235, 2.305),
+    "corridor",
+  );
+  doc = add(
+    doc,
+    floorSlab("floor-corridor-b", "Пол коридор (рукав)", 1.385, 1.41, 2.47, 1.045),
     "corridor",
   );
 
-  // Living room
-  doc = add(doc, group("living-room", "Гостиная"), "apartment");
-  doc = add(doc, box("floor-living", "floor", 0, 1227, 0, 6120, 3180, 40, "Пол гостиной"), "living-room");
-  doc = addSofa(doc, "living-room");
-  doc = add(doc, group("coffee-table", "Журнальный стол", 200, 1450, 0), "living-room");
-  doc = add(doc, box("coffee-top", "table", 0, 0, 400, 1000, 600, 30, "Столешница"), "coffee-table");
-  doc = add(doc, box("coffee-leg-1", "furniture", -420, -220, 0, 50, 50, 400, "Ножка"), "coffee-table");
-  doc = add(doc, box("coffee-leg-2", "furniture", 420, -220, 0, 50, 50, 400, "Ножка"), "coffee-table");
-  doc = add(doc, box("coffee-leg-3", "furniture", -420, 220, 0, 50, 50, 400, "Ножка"), "coffee-table");
-  doc = add(doc, box("coffee-leg-4", "furniture", 420, 220, 0, 50, 50, 400, "Ножка"), "coffee-table");
-  doc = addShelving(doc, "living-room");
+  doc = add(doc, group("bathroom", "Сан-узел"), "apartment");
+  doc = add(doc, floorSlab("floor-bath", "Пол с/у", 1.535, 0.15, 2.17, 1.11), "bathroom");
 
-  doc = add(doc, group("tv-unit", "ТВ-зона", 2700, 2200, 0), "living-room");
-  doc = add(doc, box("tv-stand", "furniture", 0, 0, 0, 400, 1400, 450, "Тумба TV"), "tv-unit");
-  doc = add(doc, box("tv-screen", "furniture", -120, 0, 520, 60, 1200, 700, "Телевизор"), "tv-unit");
-  doc = add(
-    doc,
-    box("switch-living", "smart-switch", -3000, 800, 1100, 80, 30, 120, "Smart switch"),
-    "living-room",
-  );
-  doc = add(
-    doc,
-    box("socket-living", "socket", -3000, 500, 300, 80, 80, 80, "Розетка"),
-    "living-room",
-  );
-
-  // Kitchen
   doc = add(doc, group("kitchen", "Кухня"), "apartment");
-  doc = add(doc, box("floor-kitchen", "floor", 1852, -1665, 0, 2415, 2305, 40, "Пол кухни"), "kitchen");
-  doc = add(doc, group("kitchen-set", "Кухонный гарнитур", 2400, -2300, 0), "kitchen");
-  doc = add(doc, box("counter-base", "furniture", 0, 0, 0, 600, 2200, 850, "Низ"), "kitchen-set");
-  doc = add(doc, box("counter-top", "table", 0, 0, 850, 620, 2240, 40, "Столешница"), "kitchen-set");
-  doc = add(doc, box("upper-cab", "furniture", 0, 0, 1500, 350, 2200, 700, "Верх"), "kitchen-set");
-  doc = add(doc, box("sink", "furniture", -100, -600, 890, 500, 450, 40, "Мойка"), "kitchen-set");
-  doc = add(doc, box("fridge", "furniture", 2800, -900, 0, 600, 650, 1850, "Холодильник"), "kitchen");
-  doc = addTable(doc, "kitchen", "kitchen-table", "Обеденный стол", 1400, -1200);
-  doc = add(doc, box("kitchen-light", "light", 1850, -1665, 2500, 500, 500, 60, "Светильник"), "kitchen");
-  doc = add(doc, box("chair-1", "chair", 900, -1200, 0, 420, 420, 900, "Стул"), "kitchen");
-  doc = add(doc, box("chair-2", "chair", 1900, -1200, 0, 420, 420, 900, "Стул"), "kitchen");
+  doc = add(doc, floorSlab("floor-kitchen", "Пол кухня", 3.855, 0.15, 2.415, 2.305), "kitchen");
 
-  // Bathroom
-  doc = add(doc, group("bathroom", "Санузел"), "apartment");
-  doc = add(doc, box("floor-bath", "floor", -590, -2262, 0, 2170, 1110, 40, "Пол с/у"), "bathroom");
-  doc = add(doc, group("bathtub", "Ванна", -1100, -2400, 0), "bathroom");
-  doc = add(doc, box("bath-shell", "furniture", 0, 0, 0, 1700, 700, 560, "Корпус"), "bathtub");
-  doc = add(
-    doc,
-    box("bath-inner", "furniture", 0, 0, 80, 1500, 520, 400, "Чаша", {
-      face: { color: { r: 219, g: 234, b: 254, a: 1 }, opacity: 0.2, visible: true },
-      edge: { color: { r: 147, g: 197, b: 253, a: 1 }, width: 1, opacity: 1, visible: true },
-    }),
-    "bathtub",
-  );
-  doc = add(doc, box("toilet", "furniture", 200, -2100, 0, 380, 650, 400, "Унитаз"), "bathroom");
-  doc = add(doc, box("washbasin", "furniture", 200, -2600, 0, 500, 400, 850, "Раковина"), "bathroom");
-  doc = add(doc, box("bath-light", "light", -590, -2262, 2500, 300, 300, 50, "Свет с/у"), "bathroom");
+  doc = add(doc, group("living", "Гостиная"), "apartment");
+  doc = add(doc, floorSlab("floor-living", "Пол гостиная", 0.15, 2.605, 6.12, 3.18), "living");
+  doc = addShelving(doc, "living", 3.633, 2.605);
 
   return doc;
 }
