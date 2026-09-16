@@ -12,13 +12,32 @@ import {
   removeObject,
   serializePretty,
   deserialize,
-  traverseObjects,
   updateObject,
   type ObjectId,
   type PlanaDocument,
   type PlanaObject,
 } from "@plana/core";
 import { PlanaViewer } from "@plana/viewer";
+import {
+  Box as BoxIcon,
+  BrickWall,
+  ChevronDown,
+  ChevronRight,
+  Crosshair,
+  Cylinder as CylinderIcon,
+  Download,
+  Folder,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+  Redo2,
+  Trash2,
+  Undo2,
+  Upload,
+  X,
+} from "lucide-react";
 
 export type PlanaEditorProps = {
   document?: PlanaDocument;
@@ -46,6 +65,20 @@ function useIsMobile(breakpoint = 900) {
 
 function cloneDocument(document: PlanaDocument): PlanaDocument {
   return structuredClone(document);
+}
+
+/** Open the outermost group only, so a large scene stays readable on load. */
+function initialCollapsed(document: PlanaDocument): Set<ObjectId> {
+  const collapsed = new Set<ObjectId>();
+  const walk = (id: ObjectId, depth: number) => {
+    const object = document.objects[id];
+    const children = object?.children ?? [];
+    if (children.length === 0) return;
+    if (depth >= 1) collapsed.add(id);
+    for (const child of children) walk(child, depth + 1);
+  };
+  for (const child of document.objects[document.root]?.children ?? []) walk(child, 0);
+  return collapsed;
 }
 
 export function PlanaEditor({
@@ -104,8 +137,13 @@ export function PlanaEditor({
   const mobile = useIsMobile();
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const addRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<ObjectId>>(() =>
+    initialCollapsed(documentRef.current),
+  );
+  const [focusKey, setFocusKey] = useState(0);
   const [selectedIds, setSelectedIds] = useState<ObjectId[]>([]);
   const selectedId = selectedIds[0];
   const selected = selectedId ? document.objects[selectedId] : undefined;
@@ -114,21 +152,20 @@ export function PlanaEditor({
     if (mobile) {
       setLeftOpen(false);
       setRightOpen(false);
-      setMenuOpen(false);
     } else {
       setLeftOpen(true);
       setRightOpen(true);
-      setMenuOpen(false);
     }
+    setAddOpen(false);
   }, [mobile]);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!addOpen) return;
     const onPointer = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+      if (!addRef.current?.contains(event.target as Node)) setAddOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") setAddOpen(false);
     };
     window.addEventListener("pointerdown", onPointer);
     window.addEventListener("keydown", onKey);
@@ -136,16 +173,69 @@ export function PlanaEditor({
       window.removeEventListener("pointerdown", onPointer);
       window.removeEventListener("keydown", onKey);
     };
-  }, [menuOpen]);
+  }, [addOpen]);
+
+  type TreeRow = { object: PlanaObject; depth: number; childCount: number };
 
   const rows = useMemo(() => {
-    const list: Array<{ object: PlanaObject; depth: number }> = [];
-    traverseObjects(document, (object, depth) => {
-      if (object.id === document.root) return;
-      list.push({ object, depth: Math.max(0, depth - 1) });
-    });
+    const list: TreeRow[] = [];
+    const walk = (id: ObjectId, depth: number) => {
+      const object = document.objects[id];
+      if (!object) return;
+      const children = object.children ?? [];
+      if (id !== document.root) {
+        list.push({ object, depth, childCount: children.length });
+        if (collapsed.has(id)) return;
+      }
+      for (const child of children) walk(child, id === document.root ? 0 : depth + 1);
+    };
+    walk(document.root, 0);
     return list;
-  }, [document]);
+  }, [document, collapsed]);
+
+  /** A selected group highlights its whole subtree in the viewport. */
+  const viewerSelectedIds = useMemo(() => {
+    if (!selectedId) return [];
+    const ids: ObjectId[] = [];
+    const walk = (id: ObjectId) => {
+      const object = document.objects[id];
+      if (!object) return;
+      ids.push(id);
+      for (const child of object.children ?? []) walk(child);
+    };
+    walk(selectedId);
+    return ids;
+  }, [document, selectedId]);
+
+  const toggleCollapsed = (id: ObjectId) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Reveal and scroll to whatever the viewport selected.
+  useEffect(() => {
+    if (!selectedId) return;
+    const ancestors: ObjectId[] = [];
+    let cursor = document.objects[selectedId]?.parent;
+    while (cursor) {
+      ancestors.push(cursor);
+      cursor = document.objects[cursor]?.parent;
+    }
+    if (ancestors.some((id) => collapsed.has(id))) {
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        for (const id of ancestors) next.delete(id);
+        return next;
+      });
+      return;
+    }
+    const node = treeRef.current?.querySelector(`[data-object-id="${CSS.escape(selectedId)}"]`);
+    node?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, collapsed, document]);
 
   const exportJson = () => {
     const blob = new Blob([serializePretty(document)], { type: "application/json" });
@@ -218,7 +308,6 @@ export function PlanaEditor({
   const closeDrawers = () => {
     setLeftOpen(false);
     setRightOpen(false);
-    setMenuOpen(false);
   };
 
   const selectedIdRef = useRef(selectedId);
@@ -263,66 +352,50 @@ export function PlanaEditor({
 
   const euler = selected ? eulerDegFromQuat(selected.transform.rotation) : [0, 0, 0];
 
-  const toolActions = (
-    <>
+  const headerActions = (
+    <div className="plana-actions">
       <button
         type="button"
-        onClick={() => {
-          addPrimitive("box");
-          setMenuOpen(false);
-        }}
+        className="plana-icon-btn"
+        disabled={!canUndo}
+        title="Undo (Ctrl+Z)"
+        aria-label="Undo"
+        onClick={() => undo()}
       >
-        Box
+        <Undo2 size={17} strokeWidth={1.8} />
       </button>
       <button
         type="button"
-        title="Предустановленный тип: стена"
-        onClick={() => {
-          addPrimitive("wall");
-          setMenuOpen(false);
-        }}
+        className="plana-icon-btn"
+        disabled={!canRedo}
+        title="Redo (Ctrl+Shift+Z)"
+        aria-label="Redo"
+        onClick={() => redo()}
       >
-        Wall
+        <Redo2 size={17} strokeWidth={1.8} />
       </button>
       <button
         type="button"
-        onClick={() => {
-          addPrimitive("cylinder");
-          setMenuOpen(false);
-        }}
-      >
-        Cylinder
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          addPrimitive("group");
-          setMenuOpen(false);
-        }}
-      >
-        Group
-      </button>
-      <div className="plana-sep" />
-      <button type="button" disabled={!canUndo} title="Undo (Ctrl+Z)" onClick={() => undo()}>
-        Undo
-      </button>
-      <button type="button" disabled={!canRedo} title="Redo (Ctrl+Shift+Z)" onClick={() => redo()}>
-        Redo
-      </button>
-      <button
-        type="button"
-        className="plana-btn-danger"
+        className="plana-icon-btn plana-icon-btn--danger"
         disabled={!selectedId || selectedId === document.root}
         title="Delete (Del)"
-        onClick={() => {
-          deleteSelected();
-          setMenuOpen(false);
-        }}
+        aria-label="Delete"
+        onClick={() => deleteSelected()}
       >
-        Delete
+        <Trash2 size={17} strokeWidth={1.8} />
       </button>
-      <label className="plana-file-btn">
-        Import
+      <span className="plana-sep" />
+      <button
+        type="button"
+        className="plana-icon-btn"
+        title="Center camera on the plan"
+        aria-label="Center camera"
+        onClick={() => setFocusKey((n) => n + 1)}
+      >
+        <Crosshair size={17} strokeWidth={1.8} />
+      </button>
+      <label className="plana-icon-btn" title="Import JSON">
+        <Upload size={17} strokeWidth={1.8} />
         <input
           type="file"
           accept="application/json,.json"
@@ -331,22 +404,20 @@ export function PlanaEditor({
             const file = event.target.files?.[0];
             if (!file) return;
             await importFile(file);
-            setMenuOpen(false);
             event.target.value = "";
           }}
         />
       </label>
       <button
         type="button"
-        className="plana-btn-primary"
-        onClick={() => {
-          exportJson();
-          setMenuOpen(false);
-        }}
+        className="plana-icon-btn"
+        title="Export JSON"
+        aria-label="Export"
+        onClick={() => exportJson()}
       >
-        Export
+        <Download size={17} strokeWidth={1.8} />
       </button>
-    </>
+    </div>
   );
 
   return (
@@ -356,7 +427,6 @@ export function PlanaEditor({
         mobile ? "is-mobile" : "is-desktop",
         leftOpen ? "left-open" : "",
         rightOpen ? "right-open" : "",
-        menuOpen ? "menu-open" : "",
         className,
       ]
         .filter(Boolean)
@@ -367,19 +437,19 @@ export function PlanaEditor({
           <button
             type="button"
             className={`plana-icon-btn ${leftOpen ? "is-active" : ""}`}
+            title={leftOpen ? "Hide hierarchy" : "Show hierarchy"}
             aria-label="Hierarchy"
             aria-pressed={leftOpen}
             onClick={() => {
               setLeftOpen((v) => !v);
-              if (mobile) {
-                setRightOpen(false);
-                setMenuOpen(false);
-              }
+              if (mobile) setRightOpen(false);
             }}
           >
-            <span className="plana-ico" aria-hidden>
-              ☰
-            </span>
+            {leftOpen ? (
+              <PanelLeftClose size={18} strokeWidth={1.8} />
+            ) : (
+              <PanelLeftOpen size={18} strokeWidth={1.8} />
+            )}
           </button>
           <div className="plana-brand-text">
             <span className="plana-mark">Plana</span>
@@ -387,43 +457,25 @@ export function PlanaEditor({
           </div>
         </div>
 
-        <div className="plana-toolbar plana-toolbar--desktop">{toolActions}</div>
+        {headerActions}
 
-        <div className="plana-topbar-end" ref={menuRef}>
-          <button
-            type="button"
-            className={`plana-icon-btn plana-menu-btn ${menuOpen ? "is-active" : ""}`}
-            aria-label="Menu"
-            aria-expanded={menuOpen}
-            onClick={() => {
-              setMenuOpen((v) => !v);
-              if (mobile) {
-                setLeftOpen(false);
-                setRightOpen(false);
-              }
-            }}
-          >
-            <span className="plana-ico" aria-hidden>
-              ···
-            </span>
-          </button>
-          {menuOpen && <div className="plana-menu-sheet">{toolActions}</div>}
+        <div className="plana-topbar-end">
           <button
             type="button"
             className={`plana-icon-btn ${rightOpen ? "is-active" : ""}`}
+            title={rightOpen ? "Hide inspector" : "Show inspector"}
             aria-label="Inspector"
             aria-pressed={rightOpen}
             onClick={() => {
               setRightOpen((v) => !v);
-              if (mobile) {
-                setLeftOpen(false);
-                setMenuOpen(false);
-              }
+              if (mobile) setLeftOpen(false);
             }}
           >
-            <span className="plana-ico" aria-hidden>
-              ≡
-            </span>
+            {rightOpen ? (
+              <PanelRightClose size={18} strokeWidth={1.8} />
+            ) : (
+              <PanelRightOpen size={18} strokeWidth={1.8} />
+            )}
           </button>
         </div>
       </header>
@@ -434,27 +486,74 @@ export function PlanaEditor({
             <div className="plana-panel__title">
               <span>Hierarchy</span>
               {mobile && (
-                <button type="button" className="plana-icon-btn" onClick={() => setLeftOpen(false)}>
-                  ✕
+                <button
+                  type="button"
+                  className="plana-icon-btn"
+                  aria-label="Close"
+                  onClick={() => setLeftOpen(false)}
+                >
+                  <X size={16} strokeWidth={1.8} />
                 </button>
               )}
             </div>
-            <div className="plana-tree">
-              {rows.map(({ object, depth }) => (
-                <button
-                  key={object.id}
-                  type="button"
-                  className={selectedIds.includes(object.id) ? "is-active" : undefined}
-                  style={{ paddingLeft: 10 + depth * 12 }}
-                  onClick={() => {
-                    selectObject(object.id);
-                    if (mobile) setLeftOpen(false);
-                  }}
-                >
-                  <span className="plana-type">{object.type}</span>
-                  <span className="plana-tree-name">{objectName(object)}</span>
-                </button>
-              ))}
+            <div className="plana-tree" ref={treeRef}>
+              {rows.map(({ object, depth, childCount }) => {
+                const isSelected = selectedId === object.id;
+                const inSelection = !isSelected && viewerSelectedIds.includes(object.id);
+                const isCollapsed = collapsed.has(object.id);
+                return (
+                  <div
+                    key={object.id}
+                    className="plana-tree-row"
+                    data-object-id={object.id}
+                  >
+                    {Array.from({ length: depth }, (_, level) => (
+                      <span
+                        key={level}
+                        className="plana-tree-guide"
+                        style={{ left: 10 + level * 13 }}
+                        aria-hidden
+                      />
+                    ))}
+                    {childCount > 0 ? (
+                      <button
+                        type="button"
+                        className="plana-twisty"
+                        style={{ marginLeft: depth * 13 }}
+                        aria-label={isCollapsed ? "Expand" : "Collapse"}
+                        aria-expanded={!isCollapsed}
+                        onClick={() => toggleCollapsed(object.id)}
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight size={14} strokeWidth={2} />
+                        ) : (
+                          <ChevronDown size={14} strokeWidth={2} />
+                        )}
+                      </button>
+                    ) : (
+                      <span className="plana-twisty-spacer" style={{ marginLeft: depth * 13 }} />
+                    )}
+                    <button
+                      type="button"
+                      className={[
+                        "plana-tree-item",
+                        isSelected ? "is-active" : "",
+                        inSelection ? "is-child" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={() => {
+                        selectObject(object.id);
+                        if (mobile) setLeftOpen(false);
+                      }}
+                    >
+                      <span className="plana-tree-name">{objectName(object)}</span>
+                      <span className="plana-type">{object.type}</span>
+                      {childCount > 0 && <span className="plana-count">{childCount}</span>}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </aside>
         )}
@@ -466,15 +565,73 @@ export function PlanaEditor({
         <main className="plana-viewport">
           <PlanaViewer
             document={document}
-            selectedIds={selectedIds}
+            selectedIds={viewerSelectedIds}
             activeId={selectedId}
             onSelect={selectObject}
+            focusKey={focusKey}
           />
           <div className="plana-hint">
             <span className="plana-hint-desktop">
               Orbit · pan · zoom · click · Ctrl+Z / Ctrl+Shift+Z · Del
             </span>
             <span className="plana-hint-mobile">1 finger orbit · pinch zoom · tap select</span>
+          </div>
+
+          <div className="plana-create" ref={addRef}>
+            {addOpen && (
+              <div className="plana-create-sheet">
+                <button
+                  type="button"
+                  onClick={() => {
+                    addPrimitive("box");
+                    setAddOpen(false);
+                  }}
+                >
+                  <BoxIcon size={16} strokeWidth={1.8} />
+                  Box
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addPrimitive("wall");
+                    setAddOpen(false);
+                  }}
+                >
+                  <BrickWall size={16} strokeWidth={1.8} />
+                  Wall
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addPrimitive("cylinder");
+                    setAddOpen(false);
+                  }}
+                >
+                  <CylinderIcon size={16} strokeWidth={1.8} />
+                  Cylinder
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    addPrimitive("group");
+                    setAddOpen(false);
+                  }}
+                >
+                  <Folder size={16} strokeWidth={1.8} />
+                  Group
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              className={`plana-fab ${addOpen ? "is-active" : ""}`}
+              title="Add object"
+              aria-label="Add object"
+              aria-expanded={addOpen}
+              onClick={() => setAddOpen((v) => !v)}
+            >
+              <Plus size={20} strokeWidth={2} />
+            </button>
           </div>
         </main>
 
@@ -483,8 +640,13 @@ export function PlanaEditor({
             <div className="plana-panel__title">
               <span>Inspector</span>
               {mobile && (
-                <button type="button" className="plana-icon-btn" onClick={() => setRightOpen(false)}>
-                  ✕
+                <button
+                  type="button"
+                  className="plana-icon-btn"
+                  aria-label="Close"
+                  onClick={() => setRightOpen(false)}
+                >
+                  <X size={16} strokeWidth={1.8} />
                 </button>
               )}
             </div>
@@ -672,12 +834,6 @@ export function PlanaEditor({
           </aside>
         )}
       </div>
-
-      <footer className="plana-statusbar">
-        <span>mm</span>
-        <span className="plana-status-count">{Object.keys(document.objects).length} objects</span>
-        <span className="plana-status-selected">{selected ? objectName(selected) : "nothing selected"}</span>
-      </footer>
     </div>
   );
 }
