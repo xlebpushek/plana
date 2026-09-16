@@ -32,7 +32,7 @@ function colorFromRgba(color: { r: number; g: number; b: number }) {
 function geometryKey(object: PlanaObject, wallOpts?: WallMeshOptions): string {
   const base = object.geometry ? JSON.stringify(object.geometry) : "";
   if (!wallOpts) return base;
-  return `${base}|s${wallOpts.hideStartCap ? 1 : 0}|e${wallOpts.hideEndCap ? 1 : 0}`;
+  return `${base}|s${wallOpts.hideStartSeam ? 1 : 0}|e${wallOpts.hideEndSeam ? 1 : 0}`;
 }
 
 export class PlanaRenderer {
@@ -159,10 +159,11 @@ export class PlanaRenderer {
   private wallMeshOptions(id: ObjectId): WallMeshOptions | undefined {
     if (!this.document?.objects[id] || this.document.objects[id].type !== "wall") return undefined;
     const selected = this.selection.selectedIds.includes(id);
-    if (selected) return { hideStartCap: false, hideEndCap: false };
+    // Selected wall: full bounds including top/bottom end seams.
+    if (selected) return { hideStartSeam: false, hideEndSeam: false };
     const caps = this.wallCaps.get(id);
-    if (!caps) return { hideStartCap: false, hideEndCap: false };
-    return { hideStartCap: caps.hideStart, hideEndCap: caps.hideEnd };
+    if (!caps) return { hideStartSeam: false, hideEndSeam: false };
+    return { hideStartSeam: caps.hideStartSeam, hideEndSeam: caps.hideEndSeam };
   }
 
   private createRuntime(object: PlanaObject): ObjectRuntime {

@@ -61,8 +61,53 @@ describe("wall junctions", () => {
     expect(pointInWallFootprint(v.b[0], v.b[1], h)).toBe(false);
   });
 
-  it("hides only the junction end cap on the stem wall", () => {
+  it("hides only the junction end seam on the stem wall", () => {
     const hiding = computeWallEndCapHiding(collectWallSegments(wallDoc()));
-    expect(hiding.get("v")).toEqual({ hideStart: true, hideEnd: false });
+    expect(hiding.get("v")).toEqual({ hideStartSeam: true, hideEndSeam: false });
+  });
+
+  it("detects L-corner seams on both walls", () => {
+    let doc = createDocument();
+    doc = addObject(doc, {
+      id: "north",
+      type: "wall",
+      transform: identityTransform(),
+      geometry: {
+        type: "wall",
+        path: {
+          type: "polyline",
+          points: [
+            [0, 75, 0],
+            [6420, 75, 0],
+          ],
+          closed: false,
+        },
+        thickness: 150,
+        height: { start: 2700, end: 2700 },
+        baseZ: 0,
+      },
+    });
+    doc = addObject(doc, {
+      id: "east",
+      type: "wall",
+      transform: identityTransform(),
+      geometry: {
+        type: "wall",
+        path: {
+          type: "polyline",
+          points: [
+            [6345, 0, 0],
+            [6345, 3000, 0],
+          ],
+          closed: false,
+        },
+        thickness: 150,
+        height: { start: 2700, end: 2700 },
+        baseZ: 0,
+      },
+    });
+    const hiding = computeWallEndCapHiding(collectWallSegments(doc));
+    expect(hiding.get("north")?.hideEndSeam).toBe(true);
+    expect(hiding.get("east")?.hideStartSeam).toBe(true);
   });
 });

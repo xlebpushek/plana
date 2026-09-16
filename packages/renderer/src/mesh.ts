@@ -8,10 +8,10 @@ export type RenderMesh = {
 };
 
 export type WallMeshOptions = {
-  /** Hide vertical end-cap edges at path start (junction with another wall). */
-  hideStartCap?: boolean;
-  /** Hide vertical end-cap edges at path end. */
-  hideEndCap?: boolean;
+  /** Hide top/bottom end-cap seams at path start (keep vertical corner edges). */
+  hideStartSeam?: boolean;
+  /** Hide top/bottom end-cap seams at path end. */
+  hideEndSeam?: boolean;
 };
 
 const MM = 0.001;
@@ -96,7 +96,7 @@ function sampleArc(wall: Extract<WallGeometry["path"], { type: "arc" }>, segment
   return points;
 }
 
-type CapKind = "long" | "start" | "end";
+type CapKind = "long" | "start-seam" | "end-seam" | "corner";
 
 function pushEdge(
   edges: number[],
@@ -110,8 +110,9 @@ function pushEdge(
 }
 
 /**
- * Wall solid + edges. End-cap edges at junctions can be omitted so crossing
- * walls read as continuous; callers pass hideStartCap/hideEndCap.
+ * Wall solid + edges. At junctions only the top/bottom end-cap seams are
+ * omitted (viewed from above/below). Vertical edges that form inner/outer
+ * corners are always kept.
  */
 export function buildWallMesh(wall: WallGeometry, options: WallMeshOptions = {}): RenderMesh {
   const positions: number[] = [];
@@ -187,24 +188,24 @@ export function buildWallMesh(wall: WallGeometry, options: WallMeshOptions = {})
     pushEdge(edges, kinds, world[4], world[5], "long");
     pushEdge(edges, kinds, world[7], world[6], "long");
 
-    // Start-cap ring (local -hx).
-    pushEdge(edges, kinds, world[0], world[3], isFirst ? "start" : "long");
-    pushEdge(edges, kinds, world[3], world[7], isFirst ? "start" : "long");
-    pushEdge(edges, kinds, world[7], world[4], isFirst ? "start" : "long");
-    pushEdge(edges, kinds, world[4], world[0], isFirst ? "start" : "long");
+    // Start-cap: horizontal seams (top/bottom across thickness) vs vertical corners.
+    pushEdge(edges, kinds, world[0], world[3], isFirst ? "start-seam" : "long"); // bottom
+    pushEdge(edges, kinds, world[7], world[4], isFirst ? "start-seam" : "long"); // top
+    pushEdge(edges, kinds, world[3], world[7], isFirst ? "corner" : "long"); // +thick vertical
+    pushEdge(edges, kinds, world[4], world[0], isFirst ? "corner" : "long"); // -thick vertical
 
-    // End-cap ring (local +hx).
-    pushEdge(edges, kinds, world[1], world[2], isLast ? "end" : "long");
-    pushEdge(edges, kinds, world[2], world[6], isLast ? "end" : "long");
-    pushEdge(edges, kinds, world[6], world[5], isLast ? "end" : "long");
-    pushEdge(edges, kinds, world[5], world[1], isLast ? "end" : "long");
+    // End-cap.
+    pushEdge(edges, kinds, world[1], world[2], isLast ? "end-seam" : "long"); // bottom
+    pushEdge(edges, kinds, world[6], world[5], isLast ? "end-seam" : "long"); // top
+    pushEdge(edges, kinds, world[2], world[6], isLast ? "corner" : "long"); // +thick vertical
+    pushEdge(edges, kinds, world[5], world[1], isLast ? "corner" : "long"); // -thick vertical
   }
 
   const filtered: number[] = [];
   for (let i = 0; i < kinds.length; i += 1) {
     const kind = kinds[i];
-    if (kind === "start" && options.hideStartCap) continue;
-    if (kind === "end" && options.hideEndCap) continue;
+    if (kind === "start-seam" && options.hideStartSeam) continue;
+    if (kind === "end-seam" && options.hideEndSeam) continue;
     const o = i * 6;
     filtered.push(
       edges[o],

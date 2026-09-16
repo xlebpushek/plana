@@ -69,37 +69,37 @@ function distPointToSegment(
   return { dist: Math.hypot(px - qx, py - qy), t };
 }
 
+export type WallEndCaps = { hideStartSeam: boolean; hideEndSeam: boolean };
+
 /**
- * True when a plan point lies inside another wall's thickened footprint
- * (not only near that wall's own endpoints).
+ * True when a plan point lies inside (or on the face of) another wall's
+ * thickened footprint — used for L/T junctions.
  */
 export function pointInWallFootprint(
   px: number,
   py: number,
   wall: WallWorldSegment,
-  marginMm = 2,
+  marginMm = 8,
 ): boolean {
   const { dist, t } = distPointToSegment(px, py, wall.a[0], wall.a[1], wall.b[0], wall.b[1]);
   const half = wall.thickness / 2 + marginMm;
   if (dist > half) return false;
-  // Prefer interior of the other wall (T-junction / overlap), still allow near ends for L-corners.
-  return t >= -0.02 && t <= 1.02;
+  // Allow slight overrun past endpoints so outer-corner centerlines still match.
+  return t >= -0.05 && t <= 1.05;
 }
 
-export type WallEndCaps = { hideStart: boolean; hideEnd: boolean };
-
-/** For each wall, which end caps sit inside another wall and should be hidden when not selected. */
+/** Which wall ends need top/bottom seam edges hidden (corners stay). */
 export function computeWallEndCapHiding(segments: WallWorldSegment[]): Map<string, WallEndCaps> {
   const result = new Map<string, WallEndCaps>();
   for (const wall of segments) {
-    let hideStart = false;
-    let hideEnd = false;
+    let hideStartSeam = false;
+    let hideEndSeam = false;
     for (const other of segments) {
       if (other.id === wall.id) continue;
-      if (pointInWallFootprint(wall.a[0], wall.a[1], other)) hideStart = true;
-      if (pointInWallFootprint(wall.b[0], wall.b[1], other)) hideEnd = true;
+      if (pointInWallFootprint(wall.a[0], wall.a[1], other)) hideStartSeam = true;
+      if (pointInWallFootprint(wall.b[0], wall.b[1], other)) hideEndSeam = true;
     }
-    result.set(wall.id, { hideStart, hideEnd });
+    result.set(wall.id, { hideStartSeam, hideEndSeam });
   }
   return result;
 }
