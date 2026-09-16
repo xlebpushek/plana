@@ -81,6 +81,7 @@ export class PlanaRenderer {
   private wallSegments: WallWorldSegment[] = [];
   private pointerDown: { x: number; y: number } | null = null;
   private roomCorners?: THREE.LineSegments;
+  private framed = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
@@ -115,7 +116,6 @@ export class PlanaRenderer {
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.target.set(3.2, 3.0, 1.0);
     this.controls.maxPolarAngle = Math.PI * 0.495;
 
     // Prefer face hits; threshold helps thin geometry.
@@ -185,6 +185,43 @@ export class PlanaRenderer {
       this.disposeRuntimeMeshes(runtime);
       this.runtimes.delete(id);
     }
+
+    if (!this.framed && this.runtimes.size > 1) {
+      this.framed = true;
+      this.frameDocument();
+    }
+  }
+
+  /**
+   * Orbit around the middle of the plan, wherever it sits in world space.
+   * Walls and floors define the centre; furniture must not drag it around.
+   */
+  frameDocument() {
+    const box = new THREE.Box3();
+    let anchored = false;
+    for (const [id, runtime] of this.runtimes) {
+      const type = this.document?.objects[id]?.type;
+      if (type !== "wall" && type !== "floor") continue;
+      if (!runtime.face) continue;
+      box.expandByObject(runtime.face);
+      anchored = true;
+    }
+    if (!anchored) box.setFromObject(this.root);
+    if (box.isEmpty()) return;
+
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const target = new THREE.Vector3(center.x, center.y, box.min.z + size.z * 0.45);
+
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    if (offset.lengthSq() < 1e-6) offset.set(6, -6, 5);
+    const radius = Math.max(size.x, size.y, size.z) / 2;
+    const distance = Math.max(radius, 1) / Math.sin((this.camera.fov * Math.PI) / 360);
+
+    this.controls.target.copy(target);
+    this.camera.position.copy(target).add(offset.setLength(distance));
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
   }
 
   resize(width: number, height: number) {
