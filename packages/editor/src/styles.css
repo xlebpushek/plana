@@ -1,86 +1,97 @@
 :root {
   --background: #09090b;
   --foreground: #fafafa;
-  --card: #09090b;
-  --card-foreground: #fafafa;
-  --popover: #09090b;
-  --popover-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #18181b;
-  --secondary: #27272a;
-  --secondary-foreground: #fafafa;
-  --muted: #27272a;
+  --card: #0c0c0e;
+  --muted: #18181b;
   --muted-foreground: #a1a1aa;
   --accent: #27272a;
-  --accent-foreground: #fafafa;
-  --destructive: #7f1d1d;
   --border: #27272a;
   --input: #27272a;
-  --ring: #d4d4d8;
+  --ring: #3f3f46;
+  --primary: #fafafa;
+  --primary-foreground: #09090b;
+  --danger: #f87171;
   --radius: 0.5rem;
+  color-scheme: dark;
 }
 
 .plana-editor {
   display: grid;
-  grid-template-rows: 52px 1fr 28px;
+  grid-template-rows: auto 1fr 28px;
   width: 100%;
   height: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--foreground);
   background: var(--background);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
-  border: 1px solid var(--border);
-}
-
-.plana-topbar,
-.plana-statusbar,
-.plana-panel__title {
-  border-color: var(--border);
+  overflow: hidden;
 }
 
 .plana-topbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 12px;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border);
   background: rgba(9, 9, 11, 0.92);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  z-index: 30;
 }
 
 .plana-brand {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 220px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.plana-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
 }
 
 .plana-mark {
   font-weight: 600;
   letter-spacing: -0.03em;
   font-size: 15px;
+  line-height: 1.1;
 }
 
 .plana-subtitle {
   color: var(--muted-foreground);
-  font-size: 12px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .plana-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 1px;
+}
+
+.plana-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .plana-sep {
   width: 1px;
-  height: 20px;
+  height: 18px;
   background: var(--border);
-  margin: 0 4px;
+  flex: 0 0 auto;
 }
 
+.plana-icon-btn,
 .plana-toolbar button,
 .plana-tree button {
   appearance: none;
@@ -88,14 +99,40 @@
   background: transparent;
   color: var(--foreground);
   border-radius: calc(var(--radius) - 2px);
-  padding: 6px 10px;
   font: inherit;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
+.plana-icon-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.plana-toolbar button {
+  padding: 6px 10px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.plana-btn-primary {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: var(--primary) !important;
+}
+
+.plana-btn-danger:not(:disabled):hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .plana-toolbar button:hover,
-.plana-tree button:hover {
+.plana-tree button:hover,
+.plana-icon-btn:hover {
   background: var(--accent);
 }
 
@@ -105,19 +142,39 @@
 }
 
 .plana-layout {
+  position: relative;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 300px;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
   min-height: 0;
 }
 
+.plana-editor.is-desktop .plana-panel.is-collapsed {
+  display: none;
+}
+
+.plana-editor.is-desktop.left-open:not(.right-open) .plana-layout {
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.plana-editor.is-desktop.right-open:not(.left-open) .plana-layout {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.plana-editor.is-desktop:not(.left-open):not(.right-open) .plana-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .plana-panel {
-  border-right: 1px solid var(--border);
-  background: #09090b;
+  background: var(--card);
   overflow: auto;
+  min-height: 0;
+}
+
+.plana-panel--left {
+  border-right: 1px solid var(--border);
 }
 
 .plana-panel--right {
-  border-right: none;
   border-left: 1px solid var(--border);
 }
 
@@ -125,10 +182,14 @@
   position: sticky;
   top: 0;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 12px;
   border-bottom: 1px solid var(--border);
-  background: #09090b;
-  font-size: 12px;
+  background: var(--card);
+  font-size: 11px;
   font-weight: 500;
   color: var(--muted-foreground);
   text-transform: uppercase;
@@ -144,14 +205,17 @@
 
 .plana-tree button {
   display: flex;
+  align-items: center;
   gap: 8px;
   width: 100%;
   text-align: left;
-  border: 1px solid transparent;
+  border-color: transparent;
+  padding: 7px 8px;
+  min-height: 34px;
 }
 
 .plana-tree button.is-active {
-  background: var(--secondary);
+  background: var(--accent);
   border-color: var(--border);
 }
 
@@ -160,26 +224,42 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  min-width: 64px;
+  min-width: 70px;
+  flex: 0 0 auto;
+}
+
+.plana-tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .plana-viewport {
   position: relative;
   min-width: 0;
+  min-height: 0;
   background: #09090b;
 }
 
 .plana-hint {
   position: absolute;
   left: 12px;
+  right: 12px;
   bottom: 12px;
-  padding: 6px 10px;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: rgba(9, 9, 11, 0.8);
+  background: rgba(9, 9, 11, 0.82);
   color: var(--muted-foreground);
   font-size: 12px;
   pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.plana-hint-mobile {
+  display: none;
 }
 
 .plana-inspector {
@@ -187,6 +267,14 @@
   flex-direction: column;
   gap: 12px;
   padding: 12px;
+}
+
+.plana-section-label {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
 }
 
 .plana-inspector label {
@@ -204,16 +292,17 @@
   border-radius: calc(var(--radius) - 2px);
   background: #09090b;
   color: var(--foreground);
-  padding: 7px 9px;
+  padding: 8px 9px;
   font: inherit;
   text-transform: none;
   letter-spacing: normal;
+  min-height: 36px;
 }
 
 .plana-inspector input:focus {
   outline: none;
-  border-color: var(--ring);
-  box-shadow: 0 0 0 2px rgba(212, 212, 216, 0.15);
+  border-color: #52525b;
+  box-shadow: 0 0 0 3px rgba(63, 63, 70, 0.45);
 }
 
 .plana-grid3 {
@@ -226,28 +315,123 @@
   margin: 0;
   padding: 12px;
   color: var(--muted-foreground);
+  line-height: 1.45;
 }
 
 .plana-statusbar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 0 12px;
   border-top: 1px solid var(--border);
   color: var(--muted-foreground);
-  font-size: 12px;
-  background: #09090b;
+  font-size: 11px;
+  background: var(--card);
+  overflow: hidden;
 }
 
-@media (max-width: 1100px) {
+.plana-status-selected {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plana-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 35;
+}
+
+@media (max-width: 900px) {
   .plana-layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: 180px minmax(320px, 1fr) 240px;
+    display: block;
   }
 
-  .plana-panel,
+  .plana-viewport {
+    position: absolute;
+    inset: 0;
+  }
+
+  .plana-layout {
+    position: relative;
+  }
+
+  .plana-editor.is-mobile .plana-layout {
+    min-height: 0;
+  }
+
+  .plana-panel--left,
   .plana-panel--right {
-    border: none;
-    border-bottom: 1px solid var(--border);
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: min(88vw, 340px);
+    z-index: 40;
+    border: 0;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  }
+
+  .plana-panel--left {
+    left: 0;
+    border-right: 1px solid var(--border);
+    animation: plana-slide-left 0.18s ease;
+  }
+
+  .plana-panel--right {
+    right: 0;
+    border-left: 1px solid var(--border);
+    animation: plana-slide-right 0.18s ease;
+  }
+
+  .plana-subtitle {
+    display: none;
+  }
+
+  .plana-hint-desktop {
+    display: none;
+  }
+
+  .plana-hint-mobile {
+    display: inline;
+  }
+
+  .plana-statusbar span:nth-child(2) {
+    display: none;
+  }
+}
+
+@keyframes plana-slide-left {
+  from {
+    transform: translateX(-12px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes plana-slide-right {
+  from {
+    transform: translateX(12px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 560px) {
+  .plana-toolbar button {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .plana-grid3 {
+    grid-template-columns: 1fr;
   }
 }
