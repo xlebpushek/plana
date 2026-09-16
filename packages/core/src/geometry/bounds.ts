@@ -92,5 +92,20 @@ export function geometryBounds(geometry: Geometry): AABB {
     return bounds;
   }
 
+  if (geometry.type === "extrusion") {
+    const [dx, dy, dz] = geometry.direction;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const h = geometry.height;
+    for (const p of geometry.profile.outer) {
+      bounds = expandAABB(bounds, p);
+      bounds = expandAABB(bounds, [
+        p[0] + (dx / len) * h,
+        p[1] + (dy / len) * h,
+        p[2] + (dz / len) * h,
+      ]);
+    }
+    return bounds;
+  }
+
   return bounds;
 }

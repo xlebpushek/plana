@@ -1,9 +1,11 @@
 /**
  * Demo apartment document (~33 m²), adapted from plana.v2.d flat plan.
  *
- * Plan mm: X east, Y south, Z up. Openings on the north strip are swapped
- * across east/west (door ↔ window) with left/right offsets mirrored; living
- * east window+door moved to the west living wall the same way.
+ * Plan mm: X east, Y south, Z up.
+ * Openings sit on the opposite wall from the original flat.ts placement;
+ * along-wall offsets stay as in the source (moving across the room already
+ * swaps left/right for someone facing the wall). Partition / bath doors
+ * are flipped onto the other side of their wall.
  */
 
 import {
@@ -136,13 +138,15 @@ function wallObject(spec: WallSpec): PlanaObject {
 }
 
 /**
- * Corrected opening layout (baked in):
- * - North strip: entry door on east kitchen wall, window on west corridor
- *   (swapped from flat.ts, offsets mirrored).
- * - Living: window + balcony door on west living wall (moved from east,
- *   offsets mirrored).
+ * Opening layout baked into the sample:
+ * - North strip: window on west corridor (was kitchen east), door on east
+ *   kitchen (was west entry). Same source offsets — window stays near the
+ *   north wall, entry door stays near the partition.
+ * - Living: window + balcony door on west wall with original east offsets
+ *   (window near partition, door near south) and 180° yaw.
+ * - Partition / bath doors flipped to the other side of their wall.
  */
-/** Full west/east runs (corridor+living) as one wall each — cutouts, not pieces. */
+/** Full west/east runs as one wall each — cutouts punched in the elevation. */
 const WEST_LEN = 2.53 + 3.405; // 5.935
 const EAST_LEN = WEST_LEN;
 const LIVING_ORIGIN = 2.53;
@@ -158,28 +162,9 @@ const WALLS: WallSpec[] = [
     position: 0.075,
     length: WEST_LEN,
     cutouts: [
-      // Corridor window (was kitchen east window — swapped, offset mirrored).
-      {
-        kind: "window",
-        offset: flipOffset(2.53, 0.29, 1.32),
-        width: 1.32,
-        height: 1.46,
-        sill: 0.8,
-      },
-      // Living door + window (moved from east living, offsets mirrored).
-      {
-        kind: "door",
-        offset: LIVING_ORIGIN + flipOffset(3.405, 1.985, 0.7),
-        width: 0.7,
-        height: 2.26,
-      },
-      {
-        kind: "window",
-        offset: LIVING_ORIGIN + flipOffset(3.405, 0.585, 1.4),
-        width: 1.4,
-        height: 1.46,
-        sill: 0.8,
-      },
+      { kind: "window", offset: 0.29, width: 1.32, height: 1.46, sill: 0.8 },
+      { kind: "window", offset: LIVING_ORIGIN + 0.585, width: 1.4, height: 1.46, sill: 0.8 },
+      { kind: "door", offset: LIVING_ORIGIN + 1.985, width: 0.7, height: 2.26 },
     ],
   },
   {
@@ -189,15 +174,7 @@ const WALLS: WallSpec[] = [
     origin: 0,
     position: 6.345,
     length: EAST_LEN,
-    cutouts: [
-      // Kitchen entry door (was west corridor door — swapped, offset mirrored).
-      {
-        kind: "door",
-        offset: flipOffset(2.53, 1.23, 0.8),
-        width: 0.8,
-        height: 2.04,
-      },
-    ],
+    cutouts: [{ kind: "door", offset: 1.23, width: 0.8, height: 2.04 }],
   },
   { id: "wall-bath-west", name: "Bath West Wall", along: "z", origin: 0, position: 1.46, length: 1.41 },
   { id: "wall-bath-east", name: "Bath East Wall", along: "z", origin: 0, position: 3.78, length: 1.41 },
@@ -208,7 +185,7 @@ const WALLS: WallSpec[] = [
     origin: 1.385,
     position: 1.335,
     length: 2.47,
-    cutouts: [{ kind: "door", offset: 0.88, width: 0.8, height: 2.04 }],
+    cutouts: [{ kind: "door", offset: flipOffset(2.47, 0.88, 0.8), width: 0.8, height: 2.04 }],
   },
   {
     id: "wall-partition",
@@ -217,7 +194,7 @@ const WALLS: WallSpec[] = [
     origin: 0,
     position: 2.53,
     length: 6.42,
-    cutouts: [{ kind: "door", offset: 0.575, width: 0.84, height: 2.04 }],
+    cutouts: [{ kind: "door", offset: flipOffset(6.42, 0.575, 0.84), width: 0.84, height: 2.04 }],
   },
 ];
 
@@ -347,264 +324,155 @@ function addShelving(doc: PlanaDocument, parent: string, xWest: number, zNorth: 
   return doc;
 }
 
+
+/** Obovate Crassula ovata leaf outline (mm), wider toward the rounded tip. */
+function crassulaLeafPath(length: number, width: number): Array<[number, number, number]> {
+  const n = 16;
+  const pts: Array<[number, number, number]> = [];
+  const half = (t: number) => {
+    const envelope = Math.pow(Math.sin(Math.PI * Math.pow(Math.min(1, Math.max(0, t)), 0.7)), 0.82);
+    return (width / 2) * envelope * (0.32 + 0.68 * t);
+  };
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    pts.push([half(t), 0, t * length]);
+  }
+  for (let i = n - 1; i >= 1; i--) {
+    const t = i / n;
+    pts.push([-half(t), 0, t * length]);
+  }
+  return pts;
+}
+
 /**
- * Crassula ovata (jade plant / толстянка / «денежное дерево») ~1 m tall.
- * Thick grey-brown dichotomous trunk, opposite fleshy obovate leaves —
- * a real succulent shrub, not a canopy tree and not Pachira aquatica.
- * Placed in the living-room south-west corner.
+ * Crassula ovata (jade plant / толстянка) ~1 m: thick forking trunk and
+ * large fleshy obovate leaves extruded from a path — not boxes/cylinders.
  */
 function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
   const rootId = "jade-plant";
-  const gx = 0.55 * MM;
-  const gy = 5.35 * MM;
-  doc = add(doc, group(rootId, "Jade Plant (Crassula ovata)", gx, gy, 0), parent);
+  doc = add(doc, group(rootId, "Jade Plant (Crassula ovata)", 0.55 * MM, 5.35 * MM, 0), parent);
 
   const potStyle = {
-    face: { color: { r: 168, g: 120, b: 88, a: 1 }, opacity: 0.42, visible: true },
-    edge: { color: { r: 130, g: 90, b: 65, a: 1 }, width: 1, opacity: 0.85, visible: true },
+    face: { color: { r: 176, g: 118, b: 82, a: 1 }, opacity: 0.45, visible: true },
+    edge: { color: { r: 138, g: 90, b: 60, a: 1 }, width: 1, opacity: 0.85, visible: true },
   };
   const soilStyle = {
-    face: { color: { r: 62, g: 48, b: 36, a: 1 }, opacity: 0.5, visible: true },
-    edge: { color: { r: 45, g: 34, b: 26, a: 1 }, width: 1, opacity: 0.7, visible: true },
+    face: { color: { r: 58, g: 44, b: 32, a: 1 }, opacity: 0.5, visible: true },
+    edge: { color: { r: 40, g: 30, b: 22, a: 1 }, width: 1, opacity: 0.7, visible: true },
   };
-  // Mature Crassula bark: grey-brown, almost corky
   const barkStyle = {
-    face: { color: { r: 118, g: 98, b: 78, a: 1 }, opacity: 0.42, visible: true },
-    edge: { color: { r: 88, g: 72, b: 56, a: 1 }, width: 1, opacity: 0.8, visible: true },
+    face: { color: { r: 124, g: 104, b: 84, a: 1 }, opacity: 0.44, visible: true },
+    edge: { color: { r: 92, g: 76, b: 58, a: 1 }, width: 1, opacity: 0.8, visible: true },
   };
   const greenLeaf = {
-    face: { color: { r: 58, g: 128, b: 72, a: 1 }, opacity: 0.52, visible: true },
-    edge: { color: { r: 36, g: 96, b: 52, a: 1 }, width: 0.75, opacity: 0.72, visible: true },
+    face: { color: { r: 52, g: 122, b: 68, a: 1 }, opacity: 0.55, visible: true },
+    edge: { color: { r: 32, g: 88, b: 48, a: 1 }, width: 0.7, opacity: 0.75, visible: true },
   };
   const sunLeaf = {
-    face: { color: { r: 72, g: 138, b: 70, a: 1 }, opacity: 0.5, visible: true },
-    edge: { color: { r: 140, g: 72, b: 48, a: 1 }, width: 0.75, opacity: 0.7, visible: true },
+    face: { color: { r: 68, g: 132, b: 64, a: 1 }, opacity: 0.52, visible: true },
+    edge: { color: { r: 168, g: 78, b: 42, a: 1 }, width: 0.8, opacity: 0.8, visible: true },
   };
 
-  // Ceramic pot ~20 cm Ø, plant total ~1 m with crown
-  doc = add(
-    doc,
-    {
-      id: "jade-pot-rim",
-      type: "plant",
-      transform: t(0, 0, FLOOR_T),
-      geometry: { type: "cylinder", radius: 108, height: 22, radialSegments: 28 },
-      metadata: { name: "Pot Rim" },
-      style: potStyle,
-    },
-    rootId,
-  );
-  doc = add(
-    doc,
-    {
-      id: "jade-pot",
-      type: "plant",
-      transform: {
-        ...identityTransform(),
-        position: [0, 0, FLOOR_T + 18],
-        scale: [0.92, 0.92, 1],
-      },
-      geometry: { type: "cylinder", radius: 100, height: 160, radialSegments: 28 },
-      metadata: { name: "Pot" },
-      style: potStyle,
-    },
-    rootId,
-  );
-  doc = add(
-    doc,
-    {
-      id: "jade-soil",
-      type: "plant",
-      transform: t(0, 0, FLOOR_T + 168),
-      geometry: { type: "cylinder", radius: 82, height: 18, radialSegments: 20 },
-      metadata: { name: "Soil" },
-      style: soilStyle,
-    },
-    rootId,
-  );
+  doc = add(doc, {
+    id: "jade-pot-rim", type: "plant", transform: t(0, 0, FLOOR_T),
+    geometry: { type: "cylinder", radius: 110, height: 24, radialSegments: 28 },
+    metadata: { name: "Pot Rim" }, style: potStyle,
+  }, rootId);
+  doc = add(doc, {
+    id: "jade-pot", type: "plant",
+    transform: { ...identityTransform(), position: [0, 0, FLOOR_T + 18], scale: [0.9, 0.9, 1] },
+    geometry: { type: "cylinder", radius: 102, height: 165, radialSegments: 28 },
+    metadata: { name: "Pot" }, style: potStyle,
+  }, rootId);
+  doc = add(doc, {
+    id: "jade-soil", type: "plant", transform: t(0, 0, FLOOR_T + 170),
+    geometry: { type: "cylinder", radius: 84, height: 16, radialSegments: 20 },
+    metadata: { name: "Soil" }, style: soilStyle,
+  }, rootId);
 
-  type Stem = {
-    id: string;
-    x: number;
-    y: number;
-    z: number;
-    yaw: number;
-    pitch: number;
-    radius: number;
-    length: number;
-    leafy: boolean;
-  };
-
-  // Dichotomous woody scaffold (mm): short thick trunk → forking shrub
+  type Stem = { id: string; x: number; y: number; z: number; yaw: number; pitch: number; radius: number; length: number; leafy: boolean };
   const stems: Stem[] = [
-    { id: "jade-trunk-0", x: 0, y: 0, z: 175, yaw: 0, pitch: 0, radius: 28, length: 145, leafy: false },
-    { id: "jade-trunk-1", x: 3, y: -2, z: 315, yaw: 8, pitch: 4, radius: 24, length: 120, leafy: false },
-    { id: "jade-trunk-2", x: -2, y: 4, z: 430, yaw: -6, pitch: -3, radius: 20, length: 105, leafy: false },
-    // Primary forks
-    { id: "jade-fork-a", x: -18, y: 12, z: 525, yaw: -38, pitch: 22, radius: 14, length: 125, leafy: false },
-    { id: "jade-fork-b", x: 22, y: -8, z: 530, yaw: 42, pitch: 20, radius: 14, length: 130, leafy: false },
-    { id: "jade-fork-c", x: 4, y: 18, z: 540, yaw: 8, pitch: 32, radius: 12, length: 110, leafy: false },
-    // Secondary forks
-    { id: "jade-fork-a1", x: -48, y: 28, z: 620, yaw: -55, pitch: 28, radius: 9, length: 100, leafy: true },
-    { id: "jade-fork-a2", x: -28, y: 5, z: 630, yaw: -22, pitch: 35, radius: 9, length: 95, leafy: true },
-    { id: "jade-fork-b1", x: 52, y: -22, z: 625, yaw: 58, pitch: 26, radius: 9, length: 105, leafy: true },
-    { id: "jade-fork-b2", x: 30, y: 8, z: 635, yaw: 28, pitch: 34, radius: 9, length: 98, leafy: true },
-    { id: "jade-fork-c1", x: -8, y: 42, z: 625, yaw: -12, pitch: 40, radius: 8, length: 92, leafy: true },
-    { id: "jade-fork-c2", x: 18, y: 38, z: 630, yaw: 25, pitch: 38, radius: 8, length: 90, leafy: true },
-    // Tip twigs — crown reaches ~1 m above floor
-    { id: "jade-tip-0", x: -68, y: 38, z: 760, yaw: -62, pitch: 30, radius: 6, length: 80, leafy: true },
-    { id: "jade-tip-1", x: -40, y: -8, z: 770, yaw: -18, pitch: 42, radius: 6, length: 75, leafy: true },
-    { id: "jade-tip-2", x: 72, y: -30, z: 770, yaw: 65, pitch: 28, radius: 6, length: 82, leafy: true },
-    { id: "jade-tip-3", x: 42, y: 18, z: 775, yaw: 32, pitch: 40, radius: 6, length: 78, leafy: true },
-    { id: "jade-tip-4", x: -14, y: 58, z: 765, yaw: -20, pitch: 48, radius: 5.5, length: 72, leafy: true },
-    { id: "jade-tip-5", x: 28, y: 52, z: 770, yaw: 30, pitch: 46, radius: 5.5, length: 70, leafy: true },
-    { id: "jade-tip-6", x: 8, y: -15, z: 785, yaw: 5, pitch: 50, radius: 5, length: 68, leafy: true },
-    { id: "jade-tip-7", x: -55, y: 15, z: 755, yaw: -45, pitch: 36, radius: 5.5, length: 70, leafy: true },
+    { id: "jade-trunk-0", x: 0, y: 0, z: 175, yaw: 0, pitch: 0, radius: 30, length: 150, leafy: false },
+    { id: "jade-trunk-1", x: 4, y: -3, z: 320, yaw: 6, pitch: 5, radius: 24, length: 125, leafy: false },
+    { id: "jade-trunk-2", x: -3, y: 5, z: 440, yaw: -8, pitch: -4, radius: 18, length: 100, leafy: false },
+    { id: "jade-fork-a", x: -22, y: 14, z: 530, yaw: -40, pitch: 24, radius: 12, length: 130, leafy: false },
+    { id: "jade-fork-b", x: 24, y: -10, z: 535, yaw: 44, pitch: 22, radius: 12, length: 135, leafy: false },
+    { id: "jade-fork-c", x: 2, y: 20, z: 545, yaw: 6, pitch: 34, radius: 11, length: 115, leafy: false },
+    { id: "jade-fork-a1", x: -55, y: 32, z: 630, yaw: -58, pitch: 30, radius: 8, length: 95, leafy: true },
+    { id: "jade-fork-a2", x: -30, y: 4, z: 640, yaw: -24, pitch: 36, radius: 8, length: 90, leafy: true },
+    { id: "jade-fork-b1", x: 58, y: -26, z: 640, yaw: 60, pitch: 28, radius: 8, length: 100, leafy: true },
+    { id: "jade-fork-b2", x: 32, y: 10, z: 650, yaw: 30, pitch: 36, radius: 8, length: 92, leafy: true },
+    { id: "jade-fork-c1", x: -10, y: 48, z: 640, yaw: -14, pitch: 42, radius: 7, length: 88, leafy: true },
+    { id: "jade-fork-c2", x: 20, y: 44, z: 645, yaw: 26, pitch: 40, radius: 7, length: 85, leafy: true },
   ];
 
   for (const s of stems) {
-    doc = add(
-      doc,
-      {
-        id: s.id,
-        type: "plant",
-        transform: {
-          ...identityTransform(),
-          position: [s.x, s.y, FLOOR_T + s.z],
-          rotation: quatFromEulerDeg(s.pitch, s.yaw, 0),
-        },
-        geometry: { type: "cylinder", radius: s.radius, height: s.length, radialSegments: 12 },
-        metadata: { name: s.id.replace("jade-", "").replace(/-/g, " ") },
-        style: barkStyle,
-      },
-      rootId,
-    );
+    doc = add(doc, {
+      id: s.id, type: "plant",
+      transform: { ...identityTransform(), position: [s.x, s.y, FLOOR_T + s.z], rotation: quatFromEulerDeg(s.pitch, s.yaw, 0) },
+      geometry: { type: "cylinder", radius: s.radius, height: s.length, radialSegments: 12 },
+      metadata: { name: s.id.replace("jade-", "").replace(/-/g, " ") }, style: barkStyle,
+    }, rootId);
   }
 
-  /**
-   * One fleshy obovate Crassula leaf: thick oval pad (wider toward tip),
-   * built from a short cylinder scaled into a succulent lens + a rounded tip cap.
-   */
   let leafSeq = 0;
-  const addLeaf = (
-    bx: number,
-    by: number,
-    bz: number,
-    yaw: number,
-    pitch: number,
-    roll: number,
-    size: number,
-    sunned: boolean,
-  ) => {
-    const len = 32 + size * 14;
-    const wid = 20 + size * 9;
-    const thick = 5.5 + size * 2.2;
+  const addLeaf = (bx: number, by: number, bz: number, yaw: number, pitch: number, roll: number, length: number, width: number, thick: number, sunned: boolean) => {
     const style = sunned ? sunLeaf : greenLeaf;
-    const id = `jade-leaf-${leafSeq++}`;
-    // Main blade: cylinder along local Z, flattened on Y → thick oval leaf
-    doc = add(
-      doc,
-      {
-        id,
-        type: "plant",
-        transform: {
-          ...identityTransform(),
-          position: [bx, by, bz],
-          rotation: quatFromEulerDeg(pitch, yaw, roll),
-          scale: [wid / 24, thick / 24, len / 36],
-        },
-        geometry: { type: "cylinder", radius: 12, height: 36, radialSegments: 14 },
-        metadata: { name: `Leaf ${leafSeq}` },
-        style,
+    leafSeq += 1;
+    doc = add(doc, {
+      id: `jade-leaf-${leafSeq}`,
+      type: "plant",
+      transform: { ...identityTransform(), position: [bx, by, bz], rotation: quatFromEulerDeg(pitch, yaw, roll) },
+      geometry: {
+        type: "extrusion",
+        profile: { type: "polygon", outer: crassulaLeafPath(length, width), holes: [] },
+        height: thick,
+        direction: [0, 1, 0],
       },
-      rootId,
-    );
-    // Rounded tip (slightly wider / redder edge on sun leaves)
-    const tipAlong = (len * 0.42) / 2;
-    const rad = (yaw * Math.PI) / 180;
-    const pit = (pitch * Math.PI) / 180;
-    const tipX = bx + Math.sin(rad) * Math.cos(pit) * tipAlong;
-    const tipY = by - Math.cos(rad) * Math.cos(pit) * tipAlong * 0.15;
-    const tipZ = bz + Math.sin(pit) * tipAlong + len * 0.28;
-    doc = add(
-      doc,
-      {
-        id: `${id}-tip`,
-        type: "plant",
-        transform: {
-          ...identityTransform(),
-          position: [tipX, tipY, tipZ],
-          rotation: quatFromEulerDeg(pitch + 6, yaw, roll),
-          scale: [(wid * 0.85) / 20, (thick * 0.9) / 20, (len * 0.35) / 20],
-        },
-        geometry: { type: "cylinder", radius: 10, height: 20, radialSegments: 12 },
-        metadata: { name: `Leaf Tip ${leafSeq}` },
-        style,
-      },
-      rootId,
-    );
+      metadata: { name: `Leaf ${leafSeq}` },
+      style,
+    }, rootId);
   };
 
-  // Opposite leaf pairs along leafy stems (Crassula phyllotaxis)
   for (const s of stems) {
     if (!s.leafy) continue;
-    const pairs = s.length > 80 ? 4 : 3;
     const yawRad = (s.yaw * Math.PI) / 180;
     const pitchRad = (s.pitch * Math.PI) / 180;
     const dirX = Math.sin(yawRad) * Math.cos(pitchRad);
     const dirY = -Math.cos(yawRad) * Math.cos(pitchRad);
     const dirZ = Math.sin(pitchRad);
-    // Perpendicular for opposite pair axis
     const sideX = Math.cos(yawRad);
     const sideY = Math.sin(yawRad);
-
+    const pairs = 3;
     for (let p = 0; p < pairs; p++) {
-      const tAlong = 0.28 + (p / Math.max(1, pairs - 1)) * 0.62;
+      const tAlong = 0.35 + (p / (pairs - 1)) * 0.55;
       const cx = s.x + dirX * s.length * tAlong;
-      const cy = s.y + dirY * s.length * tAlong * 0.35;
-      const cz = FLOOR_T + s.z + dirZ * s.length * tAlong + s.length * tAlong * 0.55;
-      const pairYaw = s.yaw + p * 55;
-      const spread = 14 + (1 - tAlong) * 6;
-      const size = 0.55 + tAlong * 0.7 + (p % 2) * 0.1;
-      const sunned = p + leafSeq * 0.1 > 2.5 && p % 3 === 0;
-
-      addLeaf(
-        cx + sideX * spread,
-        cy + sideY * spread,
-        cz,
-        pairYaw + 90,
-        55 + (p % 3) * 8,
-        12,
-        size,
-        sunned,
-      );
-      addLeaf(
-        cx - sideX * spread,
-        cy - sideY * spread,
-        cz + 2,
-        pairYaw - 90,
-        52 + (p % 3) * 8,
-        -10,
-        size * 0.95,
-        sunned,
-      );
+      const cy = s.y + dirY * s.length * tAlong * 0.25;
+      const cz = FLOOR_T + s.z + s.length * tAlong * 0.72;
+      const spread = 18;
+      const len = 78 + (p % 3) * 8;
+      const wid = 42 + (p % 2) * 6;
+      const thick = 9 + (p % 2);
+      const sunned = p === pairs - 1;
+      addLeaf(cx + sideX * spread, cy + sideY * spread, cz, s.yaw + 90, 58 + p * 6, 8, len, wid, thick, sunned);
+      addLeaf(cx - sideX * spread, cy - sideY * spread, cz + 3, s.yaw - 90, 56 + p * 6, -8, len * 0.96, wid * 0.96, thick, sunned);
     }
-
-    // Dense tip rosette (typical of pruned Crassula)
-    const tipX = s.x + dirX * s.length * 0.95;
-    const tipY = s.y + dirY * s.length * 0.3;
-    const tipZ = FLOOR_T + s.z + s.length * 0.85;
-    for (let k = 0; k < 6; k++) {
-      const ang = (k / 6) * Math.PI * 2;
+    const tipX = s.x + dirX * s.length * 0.98;
+    const tipY = s.y + dirY * s.length * 0.25;
+    const tipZ = FLOOR_T + s.z + s.length * 0.92;
+    for (let k = 0; k < 4; k++) {
+      const ang = (k / 4) * Math.PI * 2;
       addLeaf(
-        tipX + Math.cos(ang) * 12,
-        tipY + Math.sin(ang) * 12,
-        tipZ + (k % 3) * 5,
+        tipX + Math.cos(ang) * 16,
+        tipY + Math.sin(ang) * 16,
+        tipZ + (k % 2) * 8,
         s.yaw + (ang * 180) / Math.PI,
-        35 + (k % 4) * 10,
-        (k % 3) * 8 - 8,
-        0.7 + (k % 3) * 0.15,
-        k % 4 === 0,
+        38 + (k % 3) * 10,
+        (k % 2) * 12 - 6,
+        72 + (k % 3) * 10,
+        40 + (k % 2) * 8,
+        10,
+        k % 3 === 0,
       );
     }
   }
@@ -625,7 +493,7 @@ export function createApartmentDocument(): PlanaDocument {
 
   doc = add(doc, group("openings", "Openings"), "apartment");
 
-  // West corridor window (swapped from east kitchen)
+  // West corridor window (was kitchen east) — near the north wall.
   doc = add(
     doc,
     openingBox(
@@ -633,7 +501,7 @@ export function createApartmentDocument(): PlanaDocument {
       "window",
       "Corridor Window",
       0.075,
-      openingCenter(0, flipOffset(2.53, 0.29, 1.32), 1.32),
+      openingCenter(0, 0.29, 1.32),
       "z",
       1.32,
       1.46,
@@ -643,7 +511,7 @@ export function createApartmentDocument(): PlanaDocument {
     "openings",
   );
 
-  // East kitchen entry door (swapped from west corridor)
+  // East kitchen entry door (was west corridor) — nearer the partition.
   doc = add(
     doc,
     openingBox(
@@ -651,7 +519,7 @@ export function createApartmentDocument(): PlanaDocument {
       "door",
       "Kitchen Entry Door",
       6.345,
-      openingCenter(0, flipOffset(2.53, 1.23, 0.8), 0.8),
+      openingCenter(0, 1.23, 0.8),
       "z",
       0.8,
       2.04,
@@ -661,7 +529,7 @@ export function createApartmentDocument(): PlanaDocument {
     "openings",
   );
 
-  // Living west: door + window (moved from east, mirrored offsets, yaw 180°)
+  // Living west: original east offsets, 180° yaw (window near partition, door south).
   doc = add(
     doc,
     openingBox(
@@ -669,7 +537,7 @@ export function createApartmentDocument(): PlanaDocument {
       "door",
       "Living Door",
       0.075,
-      openingCenter(2.53, flipOffset(3.405, 1.985, 0.7), 0.7),
+      openingCenter(2.53, 1.985, 0.7),
       "z",
       0.7,
       2.26,
@@ -685,7 +553,7 @@ export function createApartmentDocument(): PlanaDocument {
       "window",
       "Living Window",
       0.075,
-      openingCenter(2.53, flipOffset(3.405, 0.585, 1.4), 1.4),
+      openingCenter(2.53, 0.585, 1.4),
       "z",
       1.4,
       1.46,
@@ -697,25 +565,45 @@ export function createApartmentDocument(): PlanaDocument {
 
   doc = add(
     doc,
-    openingBox("door-partition", "door", "Partition Door", 0.995, 2.53, "x", 0.84, 2.04),
+    openingBox(
+      "door-partition",
+      "door",
+      "Partition Door",
+      openingCenter(0, flipOffset(6.42, 0.575, 0.84), 0.84),
+      2.53,
+      "x",
+      0.84,
+      2.04,
+    ),
     "openings",
   );
   doc = add(
     doc,
-    openingBox("door-bath", "door", "Bath Door", 2.665, 1.335, "x", 0.8, 2.04),
+    openingBox(
+      "door-bath",
+      "door",
+      "Bath Door",
+      openingCenter(1.385, flipOffset(2.47, 0.88, 0.8), 0.8),
+      1.335,
+      "x",
+      0.8,
+      2.04,
+    ),
     "openings",
   );
 
-  // Floors: L-shaped corridor as one slab; bath / kitchen / living separate.
+  // One hall floor: corridor + kitchen as a single C-shape wrapping the bath.
   doc = add(doc, group("corridor", "Corridor"), "apartment");
   doc = add(
     doc,
-    floorPolygon("floor-corridor", "Corridor Floor", [
+    floorPolygon("floor-hall", "Hall Floor", [
       [0.15, 0.15],
       [1.385, 0.15],
       [1.385, 1.41],
       [3.855, 1.41],
-      [3.855, 2.455],
+      [3.855, 0.15],
+      [6.27, 0.15],
+      [6.27, 2.455],
       [0.15, 2.455],
     ]),
     "corridor",
@@ -734,16 +622,6 @@ export function createApartmentDocument(): PlanaDocument {
   );
 
   doc = add(doc, group("kitchen", "Kitchen"), "apartment");
-  doc = add(
-    doc,
-    floorPolygon("floor-kitchen", "Kitchen Floor", [
-      [3.855, 0.15],
-      [6.27, 0.15],
-      [6.27, 2.455],
-      [3.855, 2.455],
-    ]),
-    "kitchen",
-  );
 
   doc = add(doc, group("living", "Living Room"), "apartment");
   doc = add(

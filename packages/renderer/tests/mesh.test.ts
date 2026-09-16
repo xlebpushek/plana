@@ -27,9 +27,8 @@ describe("buildWallMesh", () => {
   it("builds a single solid wall without cutouts", () => {
     const mesh = buildWallMesh(wallBase());
     expect(mesh.positions.length).toBeGreaterThan(0);
-    expect(mesh.indices!.length).toBe(36); // one box, 12 tris
+    expect(mesh.indices!.length).toBe(36); // one extruded rect: 2 caps + 4 sides
     expect(mesh.edges!.length).toBeGreaterThan(0);
-    // Z spans baseZ..baseZ+height in meters
     let minZ = Infinity;
     let maxZ = -Infinity;
     for (let i = 2; i < mesh.positions.length; i += 3) {
@@ -40,32 +39,33 @@ describe("buildWallMesh", () => {
     expect(maxZ).toBeCloseTo(2800 * WORLD_FROM_MM, 6);
   });
 
-  it("composes door cutout as lintel + full runs in one mesh", () => {
+  it("punches a door as a bottom notch in one extruded wall", () => {
     const mesh = buildWallMesh(
       wallBase({
         cutouts: [{ offset: 1000, width: 900, height: 2100, sill: 0 }],
       }),
     );
-    // Full left + lintel + full right = 3 boxes → 3*36 indices
-    expect(mesh.indices!.length).toBe(3 * 36);
-    expect(mesh.positions.length).toBe(3 * 8 * 3);
+    // Not 3 boxes. One elevation with a U-notch.
+    expect(mesh.indices!.length).not.toBe(3 * 36);
+    expect(mesh.positions.length).toBeGreaterThan(8 * 3);
+    expect(mesh.indices!.length).toBeGreaterThan(36);
   });
 
-  it("composes window cutout as sill + lintel + full runs", () => {
+  it("punches a window as a hole in one extruded wall", () => {
     const mesh = buildWallMesh(
       wallBase({
         cutouts: [{ offset: 1200, width: 1400, height: 1400, sill: 900 }],
       }),
     );
-    // Full left + sill + lintel + full right = 4 boxes
-    expect(mesh.indices!.length).toBe(4 * 36);
+    expect(mesh.indices!.length).not.toBe(4 * 36);
+    expect(mesh.indices!.length).toBeGreaterThan(36);
   });
 
-  it("passive corners mode keeps only room-corner verticals", () => {
+  it("passive mode keeps corner verticals and floor/ceiling longs", () => {
     const plain = buildWallMesh(wallBase(), { mode: "corners" });
     const full = buildWallMesh(wallBase(), { mode: "full" });
-    // Plain wall: 4 corner verticals × 6 floats
-    expect(plain.edges!.length).toBe(4 * 6);
+    // 4 corner verticals (front/back × start/end) + 4 longs (front/back × floor/ceiling)
+    expect(plain.edges!.length).toBe(8 * 6);
     expect(full.edges!.length).toBeGreaterThan(plain.edges!.length);
   });
 
@@ -84,16 +84,8 @@ describe("buildWallMesh", () => {
   });
 
   it("selected full mode has more edges than passive corners", () => {
-    const full = buildWallMesh(wallBase(), {
-      mode: "full",
-      hideStartSeam: true,
-      hideEndSeam: true,
-    });
-    const corners = buildWallMesh(wallBase(), {
-      mode: "corners",
-      hideStartSeam: true,
-      hideEndSeam: true,
-    });
+    const full = buildWallMesh(wallBase(), { mode: "full" });
+    const corners = buildWallMesh(wallBase(), { mode: "corners" });
     expect(full.edges!.length).toBeGreaterThan(corners.edges!.length);
   });
 });
@@ -162,14 +154,13 @@ describe("buildFloorMesh", () => {
       baseZ: 50,
     };
     const mesh = buildFloorMesh(floor);
-    expect(mesh.indices!.length).toBe(4 * 36);
-    // outer 12 + hole 12 edges
+    expect(mesh.indices!.length).toBeGreaterThan(36);
     expect(mesh.edges!.length).toBe(24 * 6);
   });
 });
 
 describe("buildRenderMesh", () => {
-  it("routes floor and wall geometries", () => {
+  it("routes floor, wall and extrusion geometries", () => {
     expect(buildRenderMesh(wallBase())).not.toBeNull();
     expect(
       buildRenderMesh({
@@ -185,5 +176,22 @@ describe("buildRenderMesh", () => {
       }),
     ).not.toBeNull();
     expect(buildRenderMesh({ type: "box", size: [1, 1, 1] })).not.toBeNull();
+    const leaf = buildRenderMesh({
+      type: "extrusion",
+      profile: {
+        type: "polygon",
+        outer: [
+          [0, 0, 0],
+          [20, 0, 40],
+          [0, 0, 80],
+          [-20, 0, 40],
+        ],
+        holes: [],
+      },
+      height: 8,
+      direction: [0, 1, 0],
+    });
+    expect(leaf).not.toBeNull();
+    expect(leaf!.indices!.length).toBeGreaterThan(0);
   });
 });

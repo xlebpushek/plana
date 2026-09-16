@@ -15,7 +15,7 @@ export type WallMeshOptions = {
   /** Hide top/bottom end-cap seams at path end. */
   hideEndSeam?: boolean;
   /**
-   * `corners` (default, passive): only room-corner verticals.
+   * `corners` (passive): room-corner verticals + floor/ceiling longs.
    * `full` (selected): all edges; junction top/bottom seams still honor hide*.
    */
   mode?: "corners" | "full";
@@ -54,8 +54,8 @@ function toMesh(buf: MeshBuffers, options: WallMeshOptions = {}): RenderMesh {
   for (let i = 0; i < buf.kinds.length; i += 1) {
     const kind = buf.kinds[i];
     if (mode === "corners") {
-      // Passive walls: only room-corner verticals (inner/outer intersections).
-      if (kind !== "corner") continue;
+      // Passive: room-corner verticals + floor/ceiling longs. No cutout fragments.
+      if (kind !== "corner" && kind !== "long") continue;
     } else {
       // Full / non-wall meshes: drop only coplanar junction top/bottom seams.
       if (kind === "start-seam" && options.hideStartSeam) continue;
@@ -177,240 +177,162 @@ function pathPointsOf(wall: WallGeometry): Vec3[] {
  * Solid prism along the wall centerline.
  * Distances s0/s1 are mm from wall path start; z0/z1 are absolute Z mm.
  */
-type SolidRegion = {
-  s0: number;
-  s1: number;
-  z0: number;
-  z1: number;
-  cutoutStart?: boolean;
-  cutoutEnd?: boolean;
-  /** Bottom longitudinal edges bound an opening (lintel soffit). */
-  cutoutBottom?: boolean;
-  /** Top longitudinal edges bound an opening (window sill top). */
-  cutoutTop?: boolean;
-};
+type UvToWorld = (u: number, v: number, w: number) => Vec3;
 
-function composeWallSolids(
+function classifyOuterWallEdge(
+  u0: number,
+  v0: number,
+  u1: number,
+  v1: number,
+  totalLen: number,
+  zBot: number,
+  zTop: number,
+): { along: InternalEdgeKind; atA: InternalEdgeKind; atB: InternalEdgeKind } {
+  const du = u1 - u0;
+  const dv = v1 - v0;
+  const alongU = Math.abs(du) > Math.abs(dv);
+  if (alongU) {
+    const atFloor = Math.abs(v0 - zBot) < 1e-3 && Math.abs(v1 - zBot) < 1e-3;
+    const atCeil = Math.abs(v0 - zTop) < 1e-3 && Math.abs(v1 - zTop) < 1e-3;
+    const along: InternalEdgeKind = atFloor || atCeil ? "long" : "cutout";
+    const cap = (u: number): InternalEdgeKind =>
+      Math.abs(u) < 1e-3 ? "start-seam" : Math.abs(u - totalLen) < 1e-3 ? "end-seam" : "cutout";
+    return { along, atA: cap(u0), atB: cap(u1) };
+  }
+  const atStart = Math.abs(u0) < 1e-3 && Math.abs(u1) < 1e-3;
+  const atEnd = Math.abs(u0 - totalLen) < 1e-3 && Math.abs(u1 - totalLen) < 1e-3;
+  const along: InternalEdgeKind = atStart || atEnd ? "corner" : "cutout";
+  const vSeam = (v: number): InternalEdgeKind => {
+    if (atStart && (Math.abs(v - zBot) < 1e-3 || Math.abs(v - zTop) < 1e-3)) return "start-seam";
+    if (atEnd && (Math.abs(v - zBot) < 1e-3 || Math.abs(v - zTop) < 1e-3)) return "end-seam";
+    return along;
+  };
+  return { along, atA: vSeam(v0), atB: vSeam(v1) };
+}
+
+function pushExtrudedRing(
+  buf: MeshBuffers,
+  ring: Vec2[],
+  w0: number,
+  w1: number,
+  uvToWorld: UvToWorld,
+  hole: boolean,
+  totalLen: number,
+  zBot: number,
+  zTop: number,
+) {
+  const pts = closeRing(ring);
+  for (let i = 0; i < pts.length; i += 1) {
+    const a = pts[i];
+    const b = pts[(i + 1) % pts.length];
+    const a0 = uvToWorld(a[0], a[1], w0);
+    const b0 = uvToWorld(b[0], b[1], w0);
+    const b1 = uvToWorld(b[0], b[1], w1);
+    const a1 = uvToWorld(a[0], a[1], w1);
+    const bi = buf.positions.length / 3;
+    buf.positions.push(...a0, ...b0, ...b1, ...a1);
+    const ux = b0[0] - a0[0];
+    const uy = b0[1] - a0[1];
+    const uz = b0[2] - a0[2];
+    const vx = a1[0] - a0[0];
+    const vy = a1[1] - a0[1];
+    const vz = a1[2] - a0[2];
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const nl = Math.hypot(nx, ny, nz) || 1;
+    nx /= nl;
+    ny /= nl;
+    nz /= nl;
+    for (let k = 0; k < 4; k += 1) buf.normals.push(nx, ny, nz);
+    buf.indices.push(bi, bi + 1, bi + 2, bi, bi + 2, bi + 3);
+
+    if (hole) {
+      pushEdge(buf, a0, b0, "cutout");
+      pushEdge(buf, a1, b1, "cutout");
+      pushEdge(buf, a0, a1, "cutout");
+      pushEdge(buf, b0, b1, "cutout");
+    } else {
+      const kind = classifyOuterWallEdge(a[0], a[1], b[0], b[1], totalLen, zBot, zTop);
+      pushEdge(buf, a0, b0, kind.along);
+      pushEdge(buf, a1, b1, kind.along);
+      pushEdge(buf, a0, a1, kind.atA);
+      pushEdge(buf, b0, b1, kind.atB);
+    }
+  }
+}
+
+function pushUvCaps(
+  buf: MeshBuffers,
+  verts: Vec2[],
+  tris: number[],
+  w0: number,
+  w1: number,
+  uvToWorld: UvToWorld,
+) {
+  const base0 = buf.positions.length / 3;
+  for (const v of verts) {
+    const p = uvToWorld(v[0], v[1], w0);
+    buf.positions.push(p[0], p[1], p[2]);
+    buf.normals.push(0, 0, -1);
+  }
+  const base1 = buf.positions.length / 3;
+  for (const v of verts) {
+    const p = uvToWorld(v[0], v[1], w1);
+    buf.positions.push(p[0], p[1], p[2]);
+    buf.normals.push(0, 0, 1);
+  }
+  for (let i = 0; i < tris.length; i += 3) {
+    const a = tris[i];
+    const b = tris[i + 1];
+    const c = tris[i + 2];
+    buf.indices.push(base0 + a, base0 + c, base0 + b);
+    buf.indices.push(base1 + a, base1 + b, base1 + c);
+  }
+}
+
+function wallElevationRings(
   totalLen: number,
   wallHeight: number,
   baseZ: number,
   cutouts: WallCutout[] | undefined,
-): SolidRegion[] {
-  const regions: SolidRegion[] = [];
-  if (totalLen < 1e-6) return regions;
-
-  if (!cutouts?.length) {
-    regions.push({ s0: 0, s1: totalLen, z0: baseZ, z1: baseZ + wallHeight });
-    return regions;
-  }
-
-  const cuts = [...cutouts]
-    .map((c) => ({
-      offset: c.offset,
-      width: c.width,
-      height: c.height,
-      sill: c.sill ?? 0,
-    }))
-    .filter((c) => c.width > 1e-6)
-    .sort((a, b) => a.offset - b.offset);
-
-  let cursor = 0;
-
-  for (const cut of cuts) {
-    const c0 = Math.max(0, Math.min(totalLen, cut.offset));
-    const c1 = Math.max(c0, Math.min(totalLen, cut.offset + cut.width));
+): { outline: Vec2[]; holes: Vec2[][] } {
+  const zBot = baseZ;
+  const zTop = baseZ + wallHeight;
+  const doors: WallCutout[] = [];
+  const holes: Vec2[][] = [];
+  for (const c of cutouts ?? []) {
+    const c0 = Math.max(0, Math.min(totalLen, c.offset));
+    const c1 = Math.max(c0, Math.min(totalLen, c.offset + c.width));
     if (c1 - c0 < 1e-6) continue;
-
-    if (c0 > cursor + 1e-6) {
-      regions.push({
-        s0: cursor,
-        s1: c0,
-        z0: baseZ,
-        z1: baseZ + wallHeight,
-        // End face is the opening jamb.
-        cutoutEnd: true,
-      });
+    const sill = Math.max(0, Math.min(wallHeight, c.sill ?? 0));
+    const openTop = Math.max(sill, Math.min(wallHeight, sill + c.height));
+    if (sill <= 1 && openTop < wallHeight - 1) {
+      doors.push({ ...c, offset: c0, width: c1 - c0, height: openTop - zBot, sill: 0 });
+    } else if (openTop - sill > 1e-6) {
+      holes.push([
+        [c0, zBot + sill],
+        [c1, zBot + sill],
+        [c1, zBot + openTop],
+        [c0, zBot + openTop],
+      ]);
     }
-
-    const sill = Math.max(0, Math.min(wallHeight, cut.sill));
-    const openTop = Math.max(sill, Math.min(wallHeight, sill + cut.height));
-
-    if (sill > 1e-6) {
-      regions.push({
-        s0: c0,
-        s1: c1,
-        z0: baseZ,
-        z1: baseZ + sill,
-        cutoutStart: true,
-        cutoutEnd: true,
-        cutoutTop: true,
-      });
-    }
-
-    if (openTop < wallHeight - 1e-6) {
-      regions.push({
-        s0: c0,
-        s1: c1,
-        z0: baseZ + openTop,
-        z1: baseZ + wallHeight,
-        cutoutStart: true,
-        cutoutEnd: true,
-        cutoutBottom: true,
-      });
-    }
-
-    cursor = Math.max(cursor, c1);
   }
-
-  if (cursor < totalLen - 1e-6) {
-    regions.push({
-      s0: cursor,
-      s1: totalLen,
-      z0: baseZ,
-      z1: baseZ + wallHeight,
-      // Start face is the opening jamb when following a cutout.
-      cutoutStart: cursor > 1e-6,
-    });
+  doors.sort((a, b) => a.offset - b.offset);
+  const outline: Vec2[] = [[0, zBot]];
+  for (const d of doors) {
+    const c0 = d.offset;
+    const c1 = d.offset + d.width;
+    const lintel = zBot + d.height;
+    outline.push([c0, zBot], [c0, lintel], [c1, lintel], [c1, zBot]);
   }
-  return regions;
-}
-
-function pushWallPrismAlong(
-  buf: MeshBuffers,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-  segS0: number,
-  segLen: number,
-  totalLen: number,
-  thickness: number,
-  region: SolidRegion,
-) {
-  const s0 = Math.max(region.s0, segS0);
-  const s1 = Math.min(region.s1, segS0 + segLen);
-  if (s1 - s0 < 1e-6 || region.z1 - region.z0 < 1e-6) return;
-
-  const t0 = (s0 - segS0) / segLen;
-  const t1 = (s1 - segS0) / segLen;
-  const x0 = ax + (bx - ax) * t0;
-  const y0 = ay + (by - ay) * t0;
-  const x1 = ax + (bx - ax) * t1;
-  const y1 = ay + (by - ay) * t1;
-  const dx = x1 - x0;
-  const dy = y1 - y0;
-  const len = Math.hypot(dx, dy);
-  if (len < 1e-6) return;
-
-  const angle = Math.atan2(dy, dx);
-  const cx = (x0 + x1) / 2;
-  const cy = (y0 + y1) / 2;
-  const hx = (len * MM) / 2;
-  const hy = (thickness * MM) / 2;
-  const zBot = region.z0 * MM;
-  const zTop = region.z1 * MM;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-
-  const local: Vec3[] = [
-    [-hx, -hy, zBot],
-    [hx, -hy, zBot],
-    [hx, hy, zBot],
-    [-hx, hy, zBot],
-    [-hx, -hy, zTop],
-    [hx, -hy, zTop],
-    [hx, hy, zTop],
-    [-hx, hy, zTop],
-  ];
-
-  const world = local.map(([x, y, z]) => {
-    const rx = x * cos - y * sin;
-    const ry = x * sin + y * cos;
-    return [rx + cx * MM, ry + cy * MM, z] as Vec3;
-  });
-
-  const base = buf.positions.length / 3;
-  for (const p of world) {
-    buf.positions.push(p[0], p[1], p[2]);
-    buf.normals.push(0, 0, 1);
-  }
-
-  const faces = [
-    [0, 1, 2, 3],
-    [4, 7, 6, 5],
-    [0, 4, 5, 1],
-    [1, 5, 6, 2],
-    [2, 6, 7, 3],
-    [3, 7, 4, 0],
-  ];
-  for (const f of faces) {
-    buf.indices.push(
-      base + f[0],
-      base + f[1],
-      base + f[2],
-      base + f[0],
-      base + f[2],
-      base + f[3],
-    );
-  }
-
-  // Face at this prism's s0/s1 coincides with the solid region's ends (not a
-  // mid-segment clip of a longer region).
-  const atRegionStart = Math.abs(region.s0 - s0) < 1e-6;
-  const atRegionEnd = Math.abs(region.s1 - s1) < 1e-6;
-  const isWallStartFace = atRegionStart && Math.abs(s0) < 1e-6;
-  const isWallEndFace = atRegionEnd && Math.abs(s1 - totalLen) < 1e-6;
-  const startIsCutout = atRegionStart && !!region.cutoutStart;
-  const endIsCutout = atRegionEnd && !!region.cutoutEnd;
-
-  const botKind: InternalEdgeKind = region.cutoutBottom ? "cutout" : "long";
-  const topKind: InternalEdgeKind = region.cutoutTop ? "cutout" : "long";
-  pushEdge(buf, world[0], world[1], botKind);
-  pushEdge(buf, world[3], world[2], botKind);
-  pushEdge(buf, world[4], world[5], topKind);
-  pushEdge(buf, world[7], world[6], topKind);
-
-  // Start-cap edges.
-  if (isWallStartFace) {
-    pushEdge(buf, world[0], world[3], "start-seam");
-    pushEdge(buf, world[7], world[4], "start-seam");
-    pushEdge(buf, world[3], world[7], "corner");
-    pushEdge(buf, world[4], world[0], "corner");
-  } else if (startIsCutout) {
-    pushEdge(buf, world[0], world[3], "cutout");
-    pushEdge(buf, world[7], world[4], "cutout");
-    pushEdge(buf, world[3], world[7], "cutout");
-    pushEdge(buf, world[4], world[0], "cutout");
-  } else if (atRegionStart) {
-    // Multi-segment / arc joints (non-cutout): keep as longitudinal.
-    pushEdge(buf, world[0], world[3], "long");
-    pushEdge(buf, world[7], world[4], "long");
-    pushEdge(buf, world[3], world[7], "long");
-    pushEdge(buf, world[4], world[0], "long");
-  }
-
-  // End-cap edges.
-  if (isWallEndFace) {
-    pushEdge(buf, world[1], world[2], "end-seam");
-    pushEdge(buf, world[6], world[5], "end-seam");
-    pushEdge(buf, world[2], world[6], "corner");
-    pushEdge(buf, world[5], world[1], "corner");
-  } else if (endIsCutout) {
-    pushEdge(buf, world[1], world[2], "cutout");
-    pushEdge(buf, world[6], world[5], "cutout");
-    pushEdge(buf, world[2], world[6], "cutout");
-    pushEdge(buf, world[5], world[1], "cutout");
-  } else if (atRegionEnd) {
-    pushEdge(buf, world[1], world[2], "long");
-    pushEdge(buf, world[6], world[5], "long");
-    pushEdge(buf, world[2], world[6], "long");
-    pushEdge(buf, world[5], world[1], "long");
-  }
+  outline.push([totalLen, zBot], [totalLen, zTop], [0, zTop]);
+  return { outline, holes };
 }
 
 /**
- * Wall solid + edges as ONE mesh. Cutouts become sill / lintel / full-height
- * runs composed into the same buffers (not separate PlanaObjects).
+ * One extruded wall solid: elevation polygon (door notches + window holes)
+ * thickened by wall.thickness. Not a pile of boxes.
  */
 export function buildWallMesh(wall: WallGeometry, options: WallMeshOptions = {}): RenderMesh {
   const opts: WallMeshOptions = { mode: "corners", ...options };
@@ -418,75 +340,89 @@ export function buildWallMesh(wall: WallGeometry, options: WallMeshOptions = {})
   const pathPoints = pathPointsOf(wall);
   if (pathPoints.length < 2) return toMesh(buf, opts);
 
-  const segLens: number[] = [];
-  let totalLen = 0;
-  for (let i = 0; i < pathPoints.length - 1; i += 1) {
-    const a = pathPoints[i];
-    const b = pathPoints[i + 1];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    segLens.push(len);
-    totalLen += len;
-  }
+  const a = pathPoints[0];
+  const b = pathPoints[pathPoints.length - 1];
+  const totalLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (totalLen < 1e-6) return toMesh(buf, opts);
 
-  // With cutouts: one height (max of start/end). Without: per-segment lerp.
-  const solids: SolidRegion[] = wall.cutouts?.length
-    ? composeWallSolids(
-        totalLen,
-        Math.max(wall.height.start, wall.height.end),
-        wall.baseZ,
-        wall.cutouts,
-      )
-    : (() => {
-        const out: SolidRegion[] = [];
-        let acc = 0;
-        for (let i = 0; i < pathPoints.length - 1; i += 1) {
-          const len = segLens[i];
-          if (len < 1e-6) {
-            acc += len;
-            continue;
-          }
-          const t = i / Math.max(1, pathPoints.length - 2);
-          const height = wall.height.start + (wall.height.end - wall.height.start) * t;
-          out.push({
-            s0: acc,
-            s1: acc + len,
-            z0: wall.baseZ,
-            z1: wall.baseZ + height,
-          });
-          acc += len;
-        }
-        return out;
-      })();
+  const ux = (b[0] - a[0]) / totalLen;
+  const uy = (b[1] - a[1]) / totalLen;
+  const nx = -uy;
+  const ny = ux;
+  const half = wall.thickness / 2;
+  const wallHeight = Math.max(wall.height.start, wall.height.end);
+  const zBot = wall.baseZ;
+  const zTop = wall.baseZ + wallHeight;
 
-  let segStart = 0;
-  for (let i = 0; i < pathPoints.length - 1; i += 1) {
-    const a = pathPoints[i];
-    const b = pathPoints[i + 1];
-    const len = segLens[i];
-    if (len < 1e-6) {
-      segStart += len;
-      continue;
-    }
-    for (const region of solids) {
-      if (region.s1 <= segStart + 1e-9 || region.s0 >= segStart + len - 1e-9) continue;
-      pushWallPrismAlong(
-        buf,
-        a[0],
-        a[1],
-        b[0],
-        b[1],
-        segStart,
-        len,
-        totalLen,
-        wall.thickness,
-        region,
-      );
-    }
-    segStart += len;
+  const uvToWorld: UvToWorld = (s, z, t) => [
+    (a[0] + ux * s + nx * t) * MM,
+    (a[1] + uy * s + ny * t) * MM,
+    z * MM,
+  ];
+
+  const { outline, holes } = wallElevationRings(totalLen, wallHeight, wall.baseZ, wall.cutouts);
+  const { verts, indices } = triangulatePolygonWithHoles(outline, holes);
+  if (indices.length >= 3) {
+    pushUvCaps(buf, verts, indices, -half, half, uvToWorld);
+  }
+  pushExtrudedRing(buf, outline, -half, half, uvToWorld, false, totalLen, zBot, zTop);
+  for (const hole of holes) {
+    pushExtrudedRing(buf, hole, -half, half, uvToWorld, true, totalLen, zBot, zTop);
   }
 
   return toMesh(buf, opts);
+}
+
+function cross(a: Vec3, b: Vec3): Vec3 {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+
+function normalize3(v: Vec3): Vec3 {
+  const n = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / n, v[1] / n, v[2] / n];
+}
+
+function basisFromDir(dir: Vec3): { u: Vec3; v: Vec3; w: Vec3 } {
+  const w = normalize3(dir);
+  const helper: Vec3 = Math.abs(w[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  const u = normalize3(cross(helper, w));
+  const v = cross(w, u);
+  return { u, v, w };
+}
+
+function projectToUv(p: Vec3, origin: Vec3, u: Vec3, v: Vec3): Vec2 {
+  const d: Vec3 = [p[0] - origin[0], p[1] - origin[1], p[2] - origin[2]];
+  return [d[0] * u[0] + d[1] * u[1] + d[2] * u[2], d[0] * v[0] + d[1] * v[1] + d[2] * v[2]];
+}
+
+export function buildExtrusionMesh(geometry: {
+  type: "extrusion";
+  profile: { type: "polygon"; outer: Vec3[]; holes?: Vec3[][] };
+  height: number;
+  direction: Vec3;
+}): RenderMesh {
+  const buf = emptyBuffers();
+  const outer3 = geometry.profile.outer;
+  if (outer3.length < 3) return toMesh(buf);
+  const { u, v, w } = basisFromDir(geometry.direction);
+  const origin = outer3[0];
+  const uvToWorld: UvToWorld = (uu, vv, ww) => [
+    (origin[0] + u[0] * uu + v[0] * vv + w[0] * ww) * MM,
+    (origin[1] + u[1] * uu + v[1] * vv + w[1] * ww) * MM,
+    (origin[2] + u[2] * uu + v[2] * vv + w[2] * ww) * MM,
+  ];
+  const outline = outer3.map((p) => projectToUv(p, origin, u, v));
+  const holes = (geometry.profile.holes ?? []).map((h) => h.map((p) => projectToUv(p, origin, u, v)));
+  const { verts, indices } = triangulatePolygonWithHoles(outline, holes);
+  if (indices.length >= 3) pushUvCaps(buf, verts, indices, 0, geometry.height, uvToWorld);
+  const dummyLen = 1;
+  const zMin = Math.min(...outline.map((p) => p[1]));
+  const zMax = Math.max(...outline.map((p) => p[1]));
+  pushExtrudedRing(buf, outline, 0, geometry.height, uvToWorld, false, dummyLen, zMin, zMax);
+  for (const hole of holes) {
+    pushExtrudedRing(buf, hole, 0, geometry.height, uvToWorld, true, dummyLen, zMin, zMax);
+  }
+  return toMesh(buf);
 }
 
 // —— Floor ——
@@ -747,39 +683,6 @@ export function buildFloorMesh(floor: FloorGeometry): RenderMesh {
     return toMesh(buf);
   }
 
-  // One rectangular hole in a rectangular outline → four slabs.
-  if (holes.length === 1 && isAxisAlignedRect(outline) && isAxisAlignedRect(holes[0])) {
-    const ox = outline.map((p) => p[0]);
-    const oy = outline.map((p) => p[1]);
-    const hx = holes[0].map((p) => p[0]);
-    const hy = holes[0].map((p) => p[1]);
-    const oMinX = Math.min(...ox);
-    const oMaxX = Math.max(...ox);
-    const oMinY = Math.min(...oy);
-    const oMaxY = Math.max(...oy);
-    const hMinX = Math.min(...hx);
-    const hMaxX = Math.max(...hx);
-    const hMinY = Math.min(...hy);
-    const hMaxY = Math.max(...hy);
-    const slabs: Array<[number, number, number, number]> = [
-      [oMinX, oMaxX, oMinY, hMinY],
-      [oMinX, oMaxX, hMaxY, oMaxY],
-      [oMinX, hMinX, hMinY, hMaxY],
-      [hMaxX, oMaxX, hMinY, hMaxY],
-    ];
-    for (const [x0, x1, y0, y1] of slabs) {
-      const sx = x1 - x0;
-      const sy = y1 - y0;
-      if (sx < 1e-6 || sy < 1e-6) continue;
-      pushBox(buf, sx, sy, floor.thickness, (x0 + x1) / 2, (y0 + y1) / 2, baseZMm);
-    }
-    buf.edges.length = 0;
-    buf.kinds.length = 0;
-    pushFloorEdges(buf, outline, baseZ, zTop);
-    pushFloorEdges(buf, holes[0], baseZ, zTop);
-    return toMesh(buf);
-  }
-
   let verts: Vec2[];
   let indices: number[];
   if (holes.length === 0) {
@@ -838,6 +741,7 @@ export function buildRenderMesh(
 
   if (geometry.type === "wall") return buildWallMesh(geometry, options);
   if (geometry.type === "floor") return buildFloorMesh(geometry);
+  if (geometry.type === "extrusion") return buildExtrusionMesh(geometry);
 
   return null;
 }
