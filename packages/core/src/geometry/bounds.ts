@@ -84,5 +84,28 @@ export function geometryBounds(geometry: Geometry): AABB {
     return expandAABB(bounds, geometry.end);
   }
 
+  if (geometry.type === "floor") {
+    for (const [x, y] of geometry.outline) {
+      bounds = expandAABB(bounds, [x, y, geometry.baseZ]);
+      bounds = expandAABB(bounds, [x, y, geometry.baseZ + geometry.thickness]);
+    }
+    return bounds;
+  }
+
+  if (geometry.type === "extrusion") {
+    const [dx, dy, dz] = geometry.direction;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const h = geometry.height;
+    for (const p of geometry.profile.outer) {
+      bounds = expandAABB(bounds, p);
+      bounds = expandAABB(bounds, [
+        p[0] + (dx / len) * h,
+        p[1] + (dy / len) * h,
+        p[2] + (dz / len) * h,
+      ]);
+    }
+    return bounds;
+  }
+
   return bounds;
 }

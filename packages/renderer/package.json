@@ -14,7 +14,8 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean --external three --external @plana/core",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@plana/core": "workspace:*"
@@ -26,6 +27,7 @@
     "@types/three": "^0.180.0",
     "three": "^0.180.0",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

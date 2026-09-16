@@ -12,12 +12,13 @@
   --primary-foreground: #09090b;
   --danger: #f87171;
   --radius: 0.5rem;
+  --topbar-h: 52px;
   color-scheme: dark;
 }
 
 .plana-editor {
   display: grid;
-  grid-template-rows: auto 1fr 28px;
+  grid-template-rows: var(--topbar-h) 1fr 28px;
   width: 100%;
   height: 100%;
   min-height: 100dvh;
@@ -32,19 +33,27 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 52px;
-  padding: 8px 10px;
+  height: var(--topbar-h);
+  min-height: var(--topbar-h);
+  padding: 0 10px;
   border-bottom: 1px solid var(--border);
   background: rgba(9, 9, 11, 0.92);
   backdrop-filter: blur(12px);
-  z-index: 30;
+  z-index: 50;
 }
 
-.plana-brand {
+.plana-topbar-start,
+.plana-topbar-end {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex: 0 0 auto;
   min-width: 0;
+}
+
+.plana-topbar-end {
+  margin-left: auto;
+  position: relative;
 }
 
 .plana-brand-text {
@@ -77,11 +86,26 @@
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
-  padding-bottom: 1px;
 }
 
 .plana-toolbar::-webkit-scrollbar {
   display: none;
+}
+
+.plana-menu-btn {
+  display: none;
+}
+
+.plana-menu-sheet {
+  display: none;
+}
+
+.plana-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex: 0 0 auto;
+  margin: 0 2px;
 }
 
 .plana-file-btn {
@@ -101,9 +125,9 @@
   background: var(--accent);
 }
 
-
 .plana-icon-btn,
 .plana-toolbar button,
+.plana-menu-sheet button,
 .plana-tree button {
   appearance: none;
   border: 1px solid var(--border);
@@ -116,15 +140,28 @@
 }
 
 .plana-icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  padding: 0;
 }
 
-.plana-toolbar button {
+.plana-icon-btn.is-active {
+  background: var(--accent);
+  border-color: #3f3f46;
+}
+
+.plana-ico {
+  line-height: 1;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.plana-toolbar button,
+.plana-menu-sheet button {
   padding: 6px 10px;
   white-space: nowrap;
   flex: 0 0 auto;
@@ -142,12 +179,15 @@
 }
 
 .plana-toolbar button:hover,
+.plana-menu-sheet button:hover,
 .plana-tree button:hover,
-.plana-icon-btn:hover {
+.plana-icon-btn:hover,
+.plana-file-btn:hover {
   background: var(--accent);
 }
 
-.plana-toolbar button:disabled {
+.plana-toolbar button:disabled,
+.plana-menu-sheet button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -358,7 +398,65 @@
 
 @media (max-width: 900px) {
   .plana-editor.is-mobile {
-    grid-template-rows: 48px 1fr 26px;
+    --topbar-h: 44px;
+    grid-template-rows: var(--topbar-h) 1fr 24px;
+  }
+
+  .plana-editor.is-mobile .plana-topbar {
+    gap: 4px;
+    padding: 0 6px;
+  }
+
+  .plana-editor.is-mobile .plana-topbar-start {
+    gap: 4px;
+  }
+
+  .plana-editor.is-mobile .plana-brand-text {
+    display: none;
+  }
+
+  .plana-editor.is-mobile .plana-toolbar--desktop {
+    display: none;
+  }
+
+  .plana-editor.is-mobile .plana-menu-btn {
+    display: inline-flex;
+  }
+
+  .plana-editor.is-mobile .plana-icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .plana-editor.is-mobile .plana-menu-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: min(72vw, 220px);
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #0a0a0b;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    z-index: 60;
+  }
+
+  .plana-editor.is-mobile .plana-menu-sheet button,
+  .plana-editor.is-mobile .plana-menu-sheet .plana-file-btn {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+    min-height: 40px;
+    padding: 8px 10px;
+  }
+
+  .plana-editor.is-mobile .plana-menu-sheet .plana-sep {
+    width: 100%;
+    height: 1px;
+    margin: 4px 0;
   }
 
   .plana-editor.is-mobile .plana-layout {
@@ -379,7 +477,7 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    width: min(86vw, 320px);
+    width: min(88vw, 320px);
     z-index: 40;
     border: 0;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
@@ -400,10 +498,6 @@
     z-index: 30;
   }
 
-  .plana-subtitle {
-    display: none;
-  }
-
   .plana-hint-desktop {
     display: none;
   }
@@ -412,23 +506,37 @@
     display: inline;
   }
 
-  .plana-statusbar span:nth-child(2) {
+  .plana-hint {
+    left: 8px;
+    bottom: 8px;
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  .plana-status-count {
     display: none;
   }
 
-  .plana-topbar {
-    padding: 6px 8px;
-    gap: 6px;
+  .plana-statusbar {
+    padding: 0 8px;
+    gap: 8px;
   }
 }
 
 @media (max-width: 560px) {
-  .plana-toolbar button {
-    padding: 6px 8px;
-    font-size: 12px;
-  }
-
   .plana-grid3 {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .plana-type {
+    min-width: 56px;
+  }
+}
+
+/* Desktop: menu button hidden; tools stay in toolbar */
+@media (min-width: 901px) {
+  .plana-menu-btn,
+  .plana-menu-sheet {
+    display: none !important;
   }
 }
