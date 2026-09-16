@@ -1,0 +1,257 @@
+.plana-editor {
+  --bg: #fafafa;
+  --panel: #ffffff;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --muted: #71717a;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --hover: #f4f4f5;
+  display: grid;
+  grid-template-rows: 48px 1fr 28px;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  color: var(--text);
+  background: var(--bg);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+.plana-toolbar,
+.plana-status,
+.plana-panel-title {
+  border-color: var(--border);
+}
+
+.plana-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.plana-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.plana-logo {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.plana-doc-name {
+  width: 160px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  padding: 4px 8px;
+  font: inherit;
+  color: var(--muted);
+}
+
+.plana-doc-name:hover,
+.plana-doc-name:focus {
+  border-color: var(--border);
+  background: var(--hover);
+  outline: none;
+  color: var(--text);
+}
+
+.plana-tools,
+.plana-actions,
+.plana-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plana-tools {
+  flex: 1;
+}
+
+.plana-toolbar button,
+.plana-file,
+.plana-inspector button,
+.plana-tree button {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.plana-toolbar button:hover,
+.plana-file:hover,
+.plana-inspector button:hover,
+.plana-tree button:hover {
+  background: var(--hover);
+}
+
+.plana-toolbar button.is-active,
+.plana-tree button.is-active {
+  border-color: #bfdbfe;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.plana-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.plana-file {
+  display: inline-flex;
+  align-items: center;
+}
+
+.plana-body {
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  min-height: 0;
+}
+
+.plana-panel {
+  background: var(--panel);
+  border-color: var(--border);
+  overflow: auto;
+}
+
+.plana-left {
+  border-right: 1px solid var(--border);
+}
+
+.plana-right {
+  border-left: 1px solid var(--border);
+}
+
+.plana-panel-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  font-weight: 600;
+}
+
+.plana-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.plana-tree button {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 6px;
+}
+
+.plana-type {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  min-width: 48px;
+}
+
+.plana-viewport {
+  position: relative;
+  min-width: 0;
+  background: #f4f4f5;
+}
+
+.plana-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.plana-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.plana-inspector label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.plana-inspector input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 8px;
+  font: inherit;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.plana-inspector input:focus {
+  outline: 2px solid #bfdbfe;
+  border-color: #93c5fd;
+}
+
+.plana-grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.plana-muted {
+  color: var(--muted);
+  padding: 12px;
+  margin: 0;
+}
+
+.plana-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 960px) {
+  .plana-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 160px 1fr 220px;
+  }
+
+  .plana-left,
+  .plana-right {
+    border: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .plana-toolbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px;
+  }
+}
