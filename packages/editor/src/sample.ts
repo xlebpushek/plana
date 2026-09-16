@@ -4,6 +4,9 @@
  *
  * Flat plan space: X east, Z south, Y up (meters).
  * Core document: XY floor, Z up (millimetres).
+ *
+ * Boxes are XY-centered and Z-bottom-anchored in the renderer, so vertical
+ * centers from flat.ts are converted to bottoms (floor top / sill / board bottom).
  */
 
 import {
@@ -58,6 +61,8 @@ const wallSeg = (
   x2: number,
   y2: number,
   name: string,
+  baseZ = FLOOR_T,
+  height = WALL_H,
 ): PlanaObject => ({
   id,
   type: "wall",
@@ -73,13 +78,20 @@ const wallSeg = (
       closed: false,
     },
     thickness: WALL_T,
-    height: { start: WALL_H, end: WALL_H },
-    baseZ: 0,
+    height: { start: height, end: height },
+    baseZ,
   },
   metadata: { name },
 });
 
-type Cutout = { offset: number; width: number };
+type Cutout = {
+  kind: "door" | "window";
+  offset: number;
+  width: number;
+  height: number;
+  sill?: number;
+};
+
 type WallSpec = {
   id: string;
   name: string;
@@ -94,26 +106,80 @@ function add(doc: PlanaDocument, object: PlanaObject, parent: string): PlanaDocu
   return addObject(doc, object, parent);
 }
 
-/** Split a centerline wall by cutout gaps (offset = start along wall from origin). */
+function segAlong(
+  id: string,
+  spec: WallSpec,
+  a: number,
+  b: number,
+  name: string,
+  baseZ: number,
+  height: number,
+): PlanaObject {
+  if (spec.along === "x") {
+    const y = spec.position * MM;
+    return wallSeg(id, (spec.origin + a) * MM, y, (spec.origin + b) * MM, y, name, baseZ, height);
+  }
+  const x = spec.position * MM;
+  return wallSeg(id, x, (spec.origin + a) * MM, x, (spec.origin + b) * MM, name, baseZ, height);
+}
+
+/**
+ * Split a centerline wall into full-height runs plus lintel/sill pieces so
+ * openings match flat.ts cutout heights (not full-height gaps).
+ */
 function wallPieces(spec: WallSpec): PlanaObject[] {
   const cuts = [...(spec.cutouts ?? [])].sort((a, b) => a.offset - b.offset);
-  const ranges: Array<[number, number]> = [];
+  const pieces: PlanaObject[] = [];
   let cursor = 0;
+  let piece = 0;
+
+  const pushFull = (a: number, b: number) => {
+    if (b - a < 1e-6) return;
+    pieces.push(segAlong(`${spec.id}-${piece++}`, spec, a, b, spec.name, FLOOR_T, WALL_H));
+  };
+
   for (const cut of cuts) {
-    if (cut.offset > cursor + 1e-6) ranges.push([cursor, cut.offset]);
+    if (cut.offset > cursor + 1e-6) pushFull(cursor, cut.offset);
+
+    const sillM = cut.kind === "window" ? (cut.sill ?? 0.8) : 0;
+    const sillMm = Math.round(sillM * MM);
+    const openH = Math.round(cut.height * MM);
+    const openBottom = FLOOR_T + sillMm;
+    const openTop = openBottom + openH;
+
+    if (cut.kind === "window" && sillMm > 0) {
+      pieces.push(
+        segAlong(
+          `${spec.id}-sill-${piece++}`,
+          spec,
+          cut.offset,
+          cut.offset + cut.width,
+          `${spec.name} · подоконник`,
+          FLOOR_T,
+          sillMm,
+        ),
+      );
+    }
+
+    if (openTop < FLOOR_T + WALL_H - 1e-6) {
+      pieces.push(
+        segAlong(
+          `${spec.id}-lintel-${piece++}`,
+          spec,
+          cut.offset,
+          cut.offset + cut.width,
+          `${spec.name} · перемычка`,
+          openTop,
+          FLOOR_T + WALL_H - openTop,
+        ),
+      );
+    }
+
     cursor = Math.max(cursor, cut.offset + cut.width);
   }
-  if (cursor < spec.length - 1e-6) ranges.push([cursor, spec.length]);
 
-  return ranges.map(([a, b], index) => {
-    const id = `${spec.id}-${index}`;
-    if (spec.along === "x") {
-      const y = spec.position * MM;
-      return wallSeg(id, (spec.origin + a) * MM, y, (spec.origin + b) * MM, y, spec.name);
-    }
-    const x = spec.position * MM;
-    return wallSeg(id, x, (spec.origin + a) * MM, x, (spec.origin + b) * MM, spec.name);
-  });
+  if (cursor < spec.length - 1e-6) pushFull(cursor, spec.length);
+  return pieces;
 }
 
 const WALLS: WallSpec[] = [
@@ -126,7 +192,7 @@ const WALLS: WallSpec[] = [
     origin: 0,
     position: 0.075,
     length: 2.53,
-    cutouts: [{ offset: 1.23, width: 0.8 }],
+    cutouts: [{ kind: "door", offset: 1.23, width: 0.8, height: 2.04 }],
   },
   {
     id: "wall-west-living",
@@ -143,7 +209,7 @@ const WALLS: WallSpec[] = [
     origin: 0,
     position: 6.345,
     length: 2.53,
-    cutouts: [{ offset: 0.29, width: 1.32 }],
+    cutouts: [{ kind: "window", offset: 0.29, width: 1.32, height: 1.46, sill: 0.8 }],
   },
   {
     id: "wall-east-living",
@@ -153,8 +219,8 @@ const WALLS: WallSpec[] = [
     position: 6.345,
     length: 3.405,
     cutouts: [
-      { offset: 0.585, width: 1.4 },
-      { offset: 1.985, width: 0.7 },
+      { kind: "window", offset: 0.585, width: 1.4, height: 1.46, sill: 0.8 },
+      { kind: "door", offset: 1.985, width: 0.7, height: 2.26 },
     ],
   },
   { id: "wall-bath-west", name: "С/у запад", along: "z", origin: 0, position: 1.46, length: 1.41 },
@@ -166,7 +232,7 @@ const WALLS: WallSpec[] = [
     origin: 1.385,
     position: 1.335,
     length: 2.47,
-    cutouts: [{ offset: 0.88, width: 0.8 }],
+    cutouts: [{ kind: "door", offset: 0.88, width: 0.8, height: 2.04 }],
   },
   {
     id: "wall-partition",
@@ -175,7 +241,7 @@ const WALLS: WallSpec[] = [
     origin: 0,
     position: 2.53,
     length: 6.42,
-    cutouts: [{ offset: 0.575, width: 0.84 }],
+    cutouts: [{ kind: "door", offset: 0.575, width: 0.84, height: 2.04 }],
   },
 ];
 
@@ -209,11 +275,13 @@ function openingBox(
   along: "x" | "z",
   width: number,
   height: number,
+  /** Height of opening bottom above floor top (meters), from flat.ts. */
   sill = 0,
 ): PlanaObject {
   const sx = along === "x" ? width * MM : WALL_T;
   const sy = along === "z" ? width * MM : WALL_T;
-  return box(id, type, x * MM, z * MM, sill * MM, sx, sy, height * MM, name);
+  const bottom = FLOOR_T + sill * MM;
+  return box(id, type, x * MM, z * MM, bottom, sx, sy, height * MM, name);
 }
 
 /** Living shelving 5×5 from flat.ts (xWest, zNorth of carcass). */

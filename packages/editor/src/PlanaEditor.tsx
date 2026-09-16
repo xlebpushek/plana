@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   addObject,
@@ -55,6 +55,8 @@ export function PlanaEditor({
   const mobile = useIsMobile();
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [selectedIds, setSelectedIds] = useState<ObjectId[]>([]);
   const selectedId = selectedIds[0];
   const selected = selectedId ? document.objects[selectedId] : undefined;
@@ -63,11 +65,29 @@ export function PlanaEditor({
     if (mobile) {
       setLeftOpen(false);
       setRightOpen(false);
+      setMenuOpen(false);
     } else {
       setLeftOpen(true);
       setRightOpen(true);
+      setMenuOpen(false);
     }
   }, [mobile]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   const rows = useMemo(() => {
     const list: Array<{ object: PlanaObject; depth: number }> = [];
@@ -88,9 +108,7 @@ export function PlanaEditor({
     URL.revokeObjectURL(url);
   };
 
-  const addPrimitive = (
-    kind: "box" | "wall" | "cylinder" | "group",
-  ) => {
+  const addPrimitive = (kind: "box" | "wall" | "cylinder" | "group") => {
     const id = createId(kind);
     if (kind === "group") {
       setDocument(
@@ -160,7 +178,103 @@ export function PlanaEditor({
     setSelectedIds(id ? [id] : []);
   };
 
+  const deleteSelected = () => {
+    if (!selectedId || selectedId === document.root) return;
+    setDocument(removeObject(document, selectedId));
+    setSelectedIds([]);
+  };
+
+  const importFile = async (file: File) => {
+    const text = await file.text();
+    setDocument(deserialize(text));
+    setSelectedIds([]);
+  };
+
+  const closeDrawers = () => {
+    setLeftOpen(false);
+    setRightOpen(false);
+    setMenuOpen(false);
+  };
+
   const euler = selected ? eulerDegFromQuat(selected.transform.rotation) : [0, 0, 0];
+
+  const toolActions = (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          addPrimitive("box");
+          setMenuOpen(false);
+        }}
+      >
+        Box
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          addPrimitive("wall");
+          setMenuOpen(false);
+        }}
+      >
+        Wall
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          addPrimitive("cylinder");
+          setMenuOpen(false);
+        }}
+      >
+        Cylinder
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          addPrimitive("group");
+          setMenuOpen(false);
+        }}
+      >
+        Group
+      </button>
+      <div className="plana-sep" />
+      <button
+        type="button"
+        className="plana-btn-danger"
+        disabled={!selectedId || selectedId === document.root}
+        onClick={() => {
+          deleteSelected();
+          setMenuOpen(false);
+        }}
+      >
+        Delete
+      </button>
+      <label className="plana-file-btn">
+        Import
+        <input
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            await importFile(file);
+            setMenuOpen(false);
+            event.target.value = "";
+          }}
+        />
+      </label>
+      <button
+        type="button"
+        className="plana-btn-primary"
+        onClick={() => {
+          exportJson();
+          setMenuOpen(false);
+        }}
+      >
+        Export
+      </button>
+    </>
+  );
 
   return (
     <div
@@ -169,20 +283,30 @@ export function PlanaEditor({
         mobile ? "is-mobile" : "is-desktop",
         leftOpen ? "left-open" : "",
         rightOpen ? "right-open" : "",
+        menuOpen ? "menu-open" : "",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
       <header className="plana-topbar">
-        <div className="plana-brand">
+        <div className="plana-topbar-start">
           <button
             type="button"
-            className="plana-icon-btn"
-            aria-label="Toggle hierarchy"
-            onClick={() => setLeftOpen((v) => !v)}
+            className={`plana-icon-btn ${leftOpen ? "is-active" : ""}`}
+            aria-label="Hierarchy"
+            aria-pressed={leftOpen}
+            onClick={() => {
+              setLeftOpen((v) => !v);
+              if (mobile) {
+                setRightOpen(false);
+                setMenuOpen(false);
+              }
+            }}
           >
-            ☰
+            <span className="plana-ico" aria-hidden>
+              ☰
+            </span>
           </button>
           <div className="plana-brand-text">
             <span className="plana-mark">Plana</span>
@@ -190,61 +314,45 @@ export function PlanaEditor({
           </div>
         </div>
 
-        <div className="plana-toolbar">
-          <button type="button" onClick={() => addPrimitive("box")}>
-            Box
-          </button>
-          <button type="button" onClick={() => addPrimitive("wall")}>
-            Wall
-          </button>
-          <button type="button" onClick={() => addPrimitive("cylinder")}>
-            Cylinder
-          </button>
-          <button type="button" onClick={() => addPrimitive("group")}>
-            Group
-          </button>
-          <div className="plana-sep" />
+        <div className="plana-toolbar plana-toolbar--desktop">{toolActions}</div>
+
+        <div className="plana-topbar-end" ref={menuRef}>
           <button
             type="button"
-            className="plana-btn-danger"
-            disabled={!selectedId || selectedId === document.root}
+            className={`plana-icon-btn plana-menu-btn ${menuOpen ? "is-active" : ""}`}
+            aria-label="Menu"
+            aria-expanded={menuOpen}
             onClick={() => {
-              if (!selectedId) return;
-              setDocument(removeObject(document, selectedId));
-              setSelectedIds([]);
+              setMenuOpen((v) => !v);
+              if (mobile) {
+                setLeftOpen(false);
+                setRightOpen(false);
+              }
             }}
           >
-            Delete
+            <span className="plana-ico" aria-hidden>
+              ···
+            </span>
           </button>
-          <label className="plana-file-btn">
-            Import
-            <input
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                const text = await file.text();
-                setDocument(deserialize(text));
-                setSelectedIds([]);
-                event.target.value = "";
-              }}
-            />
-          </label>
-          <button type="button" className="plana-btn-primary" onClick={exportJson}>
-            Export
+          {menuOpen && <div className="plana-menu-sheet">{toolActions}</div>}
+          <button
+            type="button"
+            className={`plana-icon-btn ${rightOpen ? "is-active" : ""}`}
+            aria-label="Inspector"
+            aria-pressed={rightOpen}
+            onClick={() => {
+              setRightOpen((v) => !v);
+              if (mobile) {
+                setLeftOpen(false);
+                setMenuOpen(false);
+              }
+            }}
+          >
+            <span className="plana-ico" aria-hidden>
+              ≡
+            </span>
           </button>
         </div>
-
-        <button
-          type="button"
-          className="plana-icon-btn"
-          aria-label="Toggle inspector"
-          onClick={() => setRightOpen((v) => !v)}
-        >
-          ≡
-        </button>
       </header>
 
       <div className="plana-layout">
@@ -265,7 +373,10 @@ export function PlanaEditor({
                   type="button"
                   className={selectedIds.includes(object.id) ? "is-active" : undefined}
                   style={{ paddingLeft: 10 + depth * 12 }}
-                  onClick={() => selectObject(object.id)}
+                  onClick={() => {
+                    selectObject(object.id);
+                    if (mobile) setLeftOpen(false);
+                  }}
                 >
                   <span className="plana-type">{object.type}</span>
                   <span className="plana-tree-name">{objectName(object)}</span>
@@ -275,8 +386,8 @@ export function PlanaEditor({
           </aside>
         )}
 
-        {mobile && leftOpen && (
-          <button type="button" className="plana-backdrop" aria-label="Close" onClick={() => setLeftOpen(false)} />
+        {mobile && (leftOpen || rightOpen) && (
+          <button type="button" className="plana-backdrop" aria-label="Close" onClick={closeDrawers} />
         )}
 
         <main className="plana-viewport">
@@ -291,10 +402,6 @@ export function PlanaEditor({
             <span className="plana-hint-mobile">1 finger orbit · pinch zoom · tap select</span>
           </div>
         </main>
-
-        {mobile && rightOpen && (
-          <button type="button" className="plana-backdrop" aria-label="Close" onClick={() => setRightOpen(false)} />
-        )}
 
         {(rightOpen || !mobile) && (
           <aside className={`plana-panel plana-panel--right ${rightOpen ? "is-open" : "is-collapsed"}`}>
@@ -425,7 +532,7 @@ export function PlanaEditor({
 
       <footer className="plana-statusbar">
         <span>mm</span>
-        <span>{Object.keys(document.objects).length} objects</span>
+        <span className="plana-status-count">{Object.keys(document.objects).length} objects</span>
         <span className="plana-status-selected">{selected ? objectName(selected) : "nothing selected"}</span>
       </footer>
     </div>
