@@ -15,8 +15,9 @@ export type WallMeshOptions = {
   /** Hide top/bottom end-cap seams at path end. */
   hideEndSeam?: boolean;
   /**
-   * `corners` (passive): room-corner verticals + floor/ceiling longs.
-   * `full` (selected): all edges; junction top/bottom seams still honor hide*.
+   * `corners` (passive): floor/ceiling longs. Room inner/outer verticals
+   * are overlaid by the renderer from junctions.
+   * `full` (selected): all edges of this wall.
    */
   mode?: "corners" | "full";
 };
@@ -54,8 +55,10 @@ function toMesh(buf: MeshBuffers, options: WallMeshOptions = {}): RenderMesh {
   for (let i = 0; i < buf.kinds.length; i += 1) {
     const kind = buf.kinds[i];
     if (mode === "corners") {
-      // Passive: room-corner verticals + floor/ceiling longs. No cutout fragments.
-      if (kind !== "corner" && kind !== "long") continue;
+      // Passive: floor/ceiling longs only. Inner/outer room corners are
+      // drawn once by the renderer from wall junctions (not each wall's
+      // four end-cap verticals).
+      if (kind !== "long") continue;
     } else {
       // Full / non-wall meshes: drop only coplanar junction top/bottom seams.
       if (kind === "start-seam" && options.hideStartSeam) continue;
@@ -305,16 +308,18 @@ function wallElevationRings(
     const c0 = Math.max(0, Math.min(totalLen, c.offset));
     const c1 = Math.max(c0, Math.min(totalLen, c.offset + c.width));
     if (c1 - c0 < 1e-6) continue;
-    const sill = Math.max(0, Math.min(wallHeight, c.sill ?? 0));
-    const openTop = Math.max(sill, Math.min(wallHeight, sill + c.height));
-    if (sill <= 1 && openTop < wallHeight - 1) {
-      doors.push({ ...c, offset: c0, width: c1 - c0, height: openTop - zBot, sill: 0 });
-    } else if (openTop - sill > 1e-6) {
+    const sillRel = Math.max(0, Math.min(wallHeight, c.sill ?? 0));
+    const openTopRel = Math.max(sillRel, Math.min(wallHeight, sillRel + c.height));
+    const sillAbs = zBot + sillRel;
+    const openTopAbs = zBot + openTopRel;
+    if (sillRel <= 1 && openTopRel < wallHeight - 1) {
+      doors.push({ ...c, offset: c0, width: c1 - c0, height: openTopAbs, sill: 0 });
+    } else if (openTopRel - sillRel > 1e-6) {
       holes.push([
-        [c0, zBot + sill],
-        [c1, zBot + sill],
-        [c1, zBot + openTop],
-        [c0, zBot + openTop],
+        [c0, sillAbs],
+        [c1, sillAbs],
+        [c1, openTopAbs],
+        [c0, openTopAbs],
       ]);
     }
   }
@@ -323,8 +328,7 @@ function wallElevationRings(
   for (const d of doors) {
     const c0 = d.offset;
     const c1 = d.offset + d.width;
-    const lintel = zBot + d.height;
-    outline.push([c0, zBot], [c0, lintel], [c1, lintel], [c1, zBot]);
+    outline.push([c0, zBot], [c0, d.height], [c1, d.height], [c1, zBot]);
   }
   outline.push([totalLen, zBot], [totalLen, zTop], [0, zTop]);
   return { outline, holes };

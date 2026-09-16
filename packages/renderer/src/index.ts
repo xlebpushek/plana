@@ -10,6 +10,7 @@ export type { RendererSelection } from "./PlanaRenderer.js";
 export {
   collectWallSegments,
   computeWallEndCapHiding,
+  computeRoomCornerVerticals,
   pointInWallFootprint,
 } from "./walls.js";
-export type { WallEndCaps, WallWorldSegment } from "./walls.js";
+export type { WallEndCaps, WallWorldSegment, RoomCornerVertical } from "./walls.js";

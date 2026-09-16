@@ -10,7 +10,12 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import { WORLD_FROM_MM, buildRenderMesh, type WallMeshOptions } from "./mesh.js";
-import { collectWallSegments, computeWallEndCapHiding, type WallEndCaps } from "./walls.js";
+import {
+  collectWallSegments,
+  computeRoomCornerVerticals,
+  computeWallEndCapHiding,
+  type WallEndCaps,
+} from "./walls.js";
 
 export type RendererSelection = {
   selectedIds: ObjectId[];
@@ -72,6 +77,7 @@ export class PlanaRenderer {
   private document: PlanaDocument | null = null;
   private wallCaps = new Map<string, WallEndCaps>();
   private pointerDown: { x: number; y: number } | null = null;
+  private roomCorners?: THREE.LineSegments;
 
   constructor(canvas: HTMLCanvasElement) {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
@@ -138,6 +144,7 @@ export class PlanaRenderer {
   setDocument(document: PlanaDocument) {
     this.document = document;
     this.wallCaps = computeWallEndCapHiding(collectWallSegments(document));
+    this.rebuildRoomCorners(document);
     const keep = new Set<ObjectId>();
 
     const visit = (id: ObjectId, parent: THREE.Object3D) => {
@@ -375,6 +382,35 @@ export class PlanaRenderer {
     this.onSelect(id);
   };
 
+  private rebuildRoomCorners(document: PlanaDocument) {
+    if (this.roomCorners) {
+      this.roomCorners.geometry.dispose();
+      (this.roomCorners.material as THREE.Material).dispose();
+      this.roomCorners.removeFromParent();
+      this.roomCorners = undefined;
+    }
+    const corners = computeRoomCornerVerticals(collectWallSegments(document));
+    if (!corners.length) return;
+    const positions: number[] = [];
+    for (const c of corners) {
+      positions.push(c.x * WORLD_FROM_MM, c.y * WORLD_FROM_MM, c.z0 * WORLD_FROM_MM);
+      positions.push(c.x * WORLD_FROM_MM, c.y * WORLD_FROM_MM, c.z1 * WORLD_FROM_MM);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    const mat = new THREE.LineBasicMaterial({
+      color: new THREE.Color(245 / 255, 245 / 255, 245 / 255),
+      transparent: true,
+      opacity: 0.95,
+      depthTest: true,
+    });
+    const lines = new THREE.LineSegments(geo, mat);
+    lines.raycast = () => undefined;
+    lines.renderOrder = 5;
+    this.scene.add(lines);
+    this.roomCorners = lines;
+  }
+
   private loop = () => {
     if (this.disposed) return;
     this.frame = requestAnimationFrame(this.loop);
@@ -388,6 +424,12 @@ export class PlanaRenderer {
     this.webgl.domElement.removeEventListener("pointerdown", this.handlePointerDown);
     this.webgl.domElement.removeEventListener("pointerup", this.handlePointerUp);
     this.controls.dispose();
+    if (this.roomCorners) {
+      this.roomCorners.geometry.dispose();
+      (this.roomCorners.material as THREE.Material).dispose();
+      this.roomCorners.removeFromParent();
+      this.roomCorners = undefined;
+    }
     for (const runtime of this.runtimes.values()) this.disposeRuntimeMeshes(runtime);
     this.runtimes.clear();
     this.webgl.dispose();

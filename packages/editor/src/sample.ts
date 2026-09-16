@@ -185,7 +185,7 @@ const WALLS: WallSpec[] = [
     origin: 1.385,
     position: 1.335,
     length: 2.47,
-    cutouts: [{ kind: "door", offset: flipOffset(2.47, 0.88, 0.8), width: 0.8, height: 2.04 }],
+    cutouts: [{ kind: "door", offset: 0.5, width: 0.8, height: 2.04 }],
   },
   {
     id: "wall-partition",
@@ -259,8 +259,9 @@ function addShelving(doc: PlanaDocument, parent: string, xWest: number, zNorth: 
   const COLS = 5;
   const ROWS = 5;
   const SPAN = OUTER * 2 + INNER * (COLS - 1) + CELL * COLS;
-  const xCenter = xWest * MM + DEPTH / 2;
-  const yCenter = zNorth * MM + SPAN / 2;
+  // Against the living north wall, facing south: width along X, depth along Y.
+  const xCenter = xWest * MM + SPAN / 2;
+  const yCenter = zNorth * MM + DEPTH / 2;
   const y0 = FLOOR_T;
 
   doc = add(doc, group("shelving", "Living Shelving", xCenter, yCenter, 0), parent);
@@ -294,188 +295,257 @@ function addShelving(doc: PlanaDocument, parent: string, xWest: number, zNorth: 
   }
   yCursor += CELL;
   horiz.push({ bottom: yCursor, thick: OUTER, label: "Top Shelf" });
-  horiz.forEach((h, i) => push(`sh-h-${i}`, h.label, xCenter, yCenter, h.bottom, DEPTH, SPAN, h.thick));
+  horiz.forEach((h, i) => push(`sh-h-${i}`, h.label, xCenter, yCenter, h.bottom, SPAN, DEPTH, h.thick));
 
   const sideHeight = SPAN - 2 * OUTER;
   const sideCz = y0 + OUTER;
-  push("sh-n", "North Stile", xCenter, zNorth * MM + OUTER / 2, sideCz, DEPTH, OUTER, sideHeight);
-  push("sh-s", "South Stile", xCenter, zNorth * MM + SPAN - OUTER / 2, sideCz, DEPTH, OUTER, sideHeight);
+  push("sh-w", "West Stile", xWest * MM + OUTER / 2, yCenter, sideCz, OUTER, DEPTH, sideHeight);
+  push("sh-e", "East Stile", xWest * MM + SPAN - OUTER / 2, yCenter, sideCz, OUTER, DEPTH, sideHeight);
 
   for (let row = 0; row < ROWS; row++) {
     const cellY0 = y0 + OUTER + row * (CELL + INNER);
     for (let col = 0; col < COLS - 1; col++) {
-      const zBoard = zNorth * MM + OUTER + (col + 1) * CELL + col * INNER;
+      const xBoard = xWest * MM + OUTER + (col + 1) * CELL + col * INNER;
       push(
         `sh-v-r${row}c${col}`,
         `Divider r${row + 1}c${col + 1}`,
-        xCenter,
-        zBoard + INNER / 2,
+        xBoard + INNER / 2,
+        yCenter,
         cellY0,
-        DEPTH,
         INNER,
+        DEPTH,
         CELL,
       );
     }
   }
 
-  const zSouthFace = zNorth * MM + SPAN;
-  push("mirror-low", "Lower Mirror", xCenter, zSouthFace + 2, y0 + 270, 370, 4, 370, "window");
-  push("mirror-up", "Upper Mirror", xCenter, zSouthFace + 2, y0 + 270 + 370 + 210, 370, 4, 900, "window");
+  const ySouthFace = zNorth * MM + DEPTH;
+  push("mirror-low", "Lower Mirror", xCenter, ySouthFace + 2, y0 + 270, 370, 4, 370, "window");
+  push("mirror-up", "Upper Mirror", xCenter, ySouthFace + 2, y0 + 270 + 370 + 210, 370, 4, 900, "window");
   return doc;
 }
 
 
-/** Obovate Crassula ovata leaf outline (mm), wider toward the rounded tip. */
-function crassulaLeafPath(length: number, width: number): Array<[number, number, number]> {
-  const n = 16;
-  const pts: Array<[number, number, number]> = [];
-  const half = (t: number) => {
-    const envelope = Math.pow(Math.sin(Math.PI * Math.pow(Math.min(1, Math.max(0, t)), 0.7)), 0.82);
-    return (width / 2) * envelope * (0.32 + 0.68 * t);
-  };
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    pts.push([half(t), 0, t * length]);
+
+function quatAlignZ(dx: number, dy: number, dz: number): [number, number, number, number] {
+  const len = Math.hypot(dx, dy, dz) || 1;
+  const x = dx / len;
+  const y = dy / len;
+  const z = dz / len;
+  const dot = z;
+  if (dot > 0.9995) return [0, 0, 0, 1];
+  if (dot < -0.9995) return [1, 0, 0, 0];
+  const ax = -y;
+  const ay = x;
+  const alen = Math.hypot(ax, ay) || 1;
+  const half = Math.acos(Math.max(-1, Math.min(1, dot)));
+  const s = Math.sin(half);
+  return [(ax / alen) * s, (ay / alen) * s, 0, Math.cos(half)];
+}
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
+function samplePolyline(
+  pts: Array<[number, number, number]>,
+  steps: number,
+): Array<[number, number, number]> {
+  const out: Array<[number, number, number]> = [];
+  const n = pts.length - 1;
+  for (let i = 0; i < steps; i++) {
+    const t = i / (steps - 1);
+    const f = t * n;
+    const k = Math.min(n - 1, Math.floor(f));
+    const u = f - k;
+    const a = pts[k];
+    const b = pts[k + 1];
+    out.push([lerp(a[0], b[0], u), lerp(a[1], b[1], u), lerp(a[2], b[2], u)]);
   }
-  for (let i = n - 1; i >= 1; i--) {
-    const t = i / n;
-    pts.push([-half(t), 0, t * length]);
-  }
-  return pts;
+  return out;
 }
 
 /**
- * Crassula ovata (jade plant / толстянка) ~1 m: thick forking trunk and
- * large fleshy obovate leaves extruded from a path — not boxes/cylinders.
+ * Indoor tree (Ficus-like) matching the reference: white ovoid pot,
+ * dark tapering curved trunk, dense small-leaf canopy almost to the ceiling.
  */
 function addJadePlant(doc: PlanaDocument, parent: string): PlanaDocument {
   const rootId = "jade-plant";
-  doc = add(doc, group(rootId, "Jade Plant (Crassula ovata)", 0.55 * MM, 5.35 * MM, 0), parent);
+  doc = add(doc, group(rootId, "Indoor Tree", 0.58 * MM, 5.32 * MM, 0), parent);
 
-  const potStyle = {
-    face: { color: { r: 176, g: 118, b: 82, a: 1 }, opacity: 0.45, visible: true },
-    edge: { color: { r: 138, g: 90, b: 60, a: 1 }, width: 1, opacity: 0.85, visible: true },
+  const white = {
+    face: { color: { r: 248, g: 248, b: 246, a: 1 }, opacity: 0.42, visible: true },
+    edge: { color: { r: 220, g: 220, b: 218, a: 1 }, width: 0.8, opacity: 0.75, visible: true },
   };
   const soilStyle = {
-    face: { color: { r: 58, g: 44, b: 32, a: 1 }, opacity: 0.5, visible: true },
-    edge: { color: { r: 40, g: 30, b: 22, a: 1 }, width: 1, opacity: 0.7, visible: true },
+    face: { color: { r: 28, g: 22, b: 16, a: 1 }, opacity: 0.55, visible: true },
+    edge: { color: { r: 18, g: 14, b: 10, a: 1 }, width: 0.8, opacity: 0.7, visible: true },
   };
-  const barkStyle = {
-    face: { color: { r: 124, g: 104, b: 84, a: 1 }, opacity: 0.44, visible: true },
-    edge: { color: { r: 92, g: 76, b: 58, a: 1 }, width: 1, opacity: 0.8, visible: true },
+  const bark = {
+    face: { color: { r: 42, g: 32, b: 26, a: 1 }, opacity: 0.5, visible: true },
+    edge: { color: { r: 28, g: 20, b: 16, a: 1 }, width: 0.7, opacity: 0.55, visible: true },
   };
-  const greenLeaf = {
-    face: { color: { r: 52, g: 122, b: 68, a: 1 }, opacity: 0.55, visible: true },
-    edge: { color: { r: 32, g: 88, b: 48, a: 1 }, width: 0.7, opacity: 0.75, visible: true },
+  const leafA = {
+    face: { color: { r: 72, g: 108, b: 58, a: 1 }, opacity: 0.45, visible: true },
+    edge: { color: { r: 48, g: 78, b: 38, a: 1 }, width: 0.45, opacity: 0.35, visible: true },
   };
-  const sunLeaf = {
-    face: { color: { r: 68, g: 132, b: 64, a: 1 }, opacity: 0.52, visible: true },
-    edge: { color: { r: 168, g: 78, b: 42, a: 1 }, width: 0.8, opacity: 0.8, visible: true },
+  const leafB = {
+    face: { color: { r: 92, g: 128, b: 70, a: 1 }, opacity: 0.4, visible: true },
+    edge: { color: { r: 60, g: 92, b: 46, a: 1 }, width: 0.45, opacity: 0.3, visible: true },
   };
 
+  // Egg pot ~40 cm, stacked discs
+  const pot: Array<[number, number]> = [
+    [18, 78], [40, 128], [80, 168], [130, 192], [190, 202],
+    [250, 198], [310, 178], [355, 148], [385, 118],
+  ];
+  pot.forEach(([z, r], i) => {
+    const h = i < pot.length - 1 ? pot[i + 1][0] - z : 22;
+    doc = add(doc, {
+      id: `tree-pot-${i}`, type: "plant",
+      transform: t(0, 0, FLOOR_T + z),
+      geometry: { type: "cylinder", radius: r, height: Math.max(12, h + 4), radialSegments: 24 },
+      metadata: { name: i === 0 ? "Pot Base" : "Pot" }, style: white,
+    }, rootId);
+  });
   doc = add(doc, {
-    id: "jade-pot-rim", type: "plant", transform: t(0, 0, FLOOR_T),
-    geometry: { type: "cylinder", radius: 110, height: 24, radialSegments: 28 },
-    metadata: { name: "Pot Rim" }, style: potStyle,
-  }, rootId);
-  doc = add(doc, {
-    id: "jade-pot", type: "plant",
-    transform: { ...identityTransform(), position: [0, 0, FLOOR_T + 18], scale: [0.9, 0.9, 1] },
-    geometry: { type: "cylinder", radius: 102, height: 165, radialSegments: 28 },
-    metadata: { name: "Pot" }, style: potStyle,
-  }, rootId);
-  doc = add(doc, {
-    id: "jade-soil", type: "plant", transform: t(0, 0, FLOOR_T + 170),
-    geometry: { type: "cylinder", radius: 84, height: 16, radialSegments: 20 },
+    id: "tree-soil", type: "plant", transform: t(0, 0, FLOOR_T + 368),
+    geometry: { type: "cylinder", radius: 108, height: 18, radialSegments: 20 },
     metadata: { name: "Soil" }, style: soilStyle,
   }, rootId);
 
-  type Stem = { id: string; x: number; y: number; z: number; yaw: number; pitch: number; radius: number; length: number; leafy: boolean };
-  const stems: Stem[] = [
-    { id: "jade-trunk-0", x: 0, y: 0, z: 175, yaw: 0, pitch: 0, radius: 30, length: 150, leafy: false },
-    { id: "jade-trunk-1", x: 4, y: -3, z: 320, yaw: 6, pitch: 5, radius: 24, length: 125, leafy: false },
-    { id: "jade-trunk-2", x: -3, y: 5, z: 440, yaw: -8, pitch: -4, radius: 18, length: 100, leafy: false },
-    { id: "jade-fork-a", x: -22, y: 14, z: 530, yaw: -40, pitch: 24, radius: 12, length: 130, leafy: false },
-    { id: "jade-fork-b", x: 24, y: -10, z: 535, yaw: 44, pitch: 22, radius: 12, length: 135, leafy: false },
-    { id: "jade-fork-c", x: 2, y: 20, z: 545, yaw: 6, pitch: 34, radius: 11, length: 115, leafy: false },
-    { id: "jade-fork-a1", x: -55, y: 32, z: 630, yaw: -58, pitch: 30, radius: 8, length: 95, leafy: true },
-    { id: "jade-fork-a2", x: -30, y: 4, z: 640, yaw: -24, pitch: 36, radius: 8, length: 90, leafy: true },
-    { id: "jade-fork-b1", x: 58, y: -26, z: 640, yaw: 60, pitch: 28, radius: 8, length: 100, leafy: true },
-    { id: "jade-fork-b2", x: 32, y: 10, z: 650, yaw: 30, pitch: 36, radius: 8, length: 92, leafy: true },
-    { id: "jade-fork-c1", x: -10, y: 48, z: 640, yaw: -14, pitch: 42, radius: 7, length: 88, leafy: true },
-    { id: "jade-fork-c2", x: 20, y: 44, z: 645, yaw: 26, pitch: 40, radius: 7, length: 85, leafy: true },
-  ];
-
-  for (const s of stems) {
+  const addSeg = (
+    id: string,
+    x: number, y: number, z: number,
+    dx: number, dy: number, dz: number,
+    radius: number,
+  ) => {
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 4) return;
     doc = add(doc, {
-      id: s.id, type: "plant",
-      transform: { ...identityTransform(), position: [s.x, s.y, FLOOR_T + s.z], rotation: quatFromEulerDeg(s.pitch, s.yaw, 0) },
-      geometry: { type: "cylinder", radius: s.radius, height: s.length, radialSegments: 12 },
-      metadata: { name: s.id.replace("jade-", "").replace(/-/g, " ") }, style: barkStyle,
-    }, rootId);
-  }
-
-  let leafSeq = 0;
-  const addLeaf = (bx: number, by: number, bz: number, yaw: number, pitch: number, roll: number, length: number, width: number, thick: number, sunned: boolean) => {
-    const style = sunned ? sunLeaf : greenLeaf;
-    leafSeq += 1;
-    doc = add(doc, {
-      id: `jade-leaf-${leafSeq}`,
-      type: "plant",
-      transform: { ...identityTransform(), position: [bx, by, bz], rotation: quatFromEulerDeg(pitch, yaw, roll) },
-      geometry: {
-        type: "extrusion",
-        profile: { type: "polygon", outer: crassulaLeafPath(length, width), holes: [] },
-        height: thick,
-        direction: [0, 1, 0],
+      id, type: "plant",
+      transform: {
+        ...identityTransform(),
+        position: [x, y, FLOOR_T + z],
+        rotation: quatAlignZ(dx, dy, dz),
       },
-      metadata: { name: `Leaf ${leafSeq}` },
-      style,
+      geometry: { type: "cylinder", radius, height: len, radialSegments: 10 },
+      metadata: { name: "Trunk" }, style: bark,
     }, rootId);
   };
 
-  for (const s of stems) {
-    if (!s.leafy) continue;
-    const yawRad = (s.yaw * Math.PI) / 180;
-    const pitchRad = (s.pitch * Math.PI) / 180;
-    const dirX = Math.sin(yawRad) * Math.cos(pitchRad);
-    const dirY = -Math.cos(yawRad) * Math.cos(pitchRad);
-    const dirZ = Math.sin(pitchRad);
-    const sideX = Math.cos(yawRad);
-    const sideY = Math.sin(yawRad);
-    const pairs = 3;
-    for (let p = 0; p < pairs; p++) {
-      const tAlong = 0.35 + (p / (pairs - 1)) * 0.55;
-      const cx = s.x + dirX * s.length * tAlong;
-      const cy = s.y + dirY * s.length * tAlong * 0.25;
-      const cz = FLOOR_T + s.z + s.length * tAlong * 0.72;
-      const spread = 18;
-      const len = 78 + (p % 3) * 8;
-      const wid = 42 + (p % 2) * 6;
-      const thick = 9 + (p % 2);
-      const sunned = p === pairs - 1;
-      addLeaf(cx + sideX * spread, cy + sideY * spread, cz, s.yaw + 90, 58 + p * 6, 8, len, wid, thick, sunned);
-      addLeaf(cx - sideX * spread, cy - sideY * spread, cz + 3, s.yaw - 90, 56 + p * 6, -8, len * 0.96, wid * 0.96, thick, sunned);
-    }
-    const tipX = s.x + dirX * s.length * 0.98;
-    const tipY = s.y + dirY * s.length * 0.25;
-    const tipZ = FLOOR_T + s.z + s.length * 0.92;
-    for (let k = 0; k < 4; k++) {
-      const ang = (k / 4) * Math.PI * 2;
-      addLeaf(
-        tipX + Math.cos(ang) * 16,
-        tipY + Math.sin(ang) * 16,
-        tipZ + (k % 2) * 8,
-        s.yaw + (ang * 180) / Math.PI,
-        38 + (k % 3) * 10,
-        (k % 2) * 12 - 6,
-        72 + (k % 3) * 10,
-        40 + (k % 2) * 8,
-        10,
-        k % 3 === 0,
-      );
-    }
+  // Main trunk spline (mm above floor inside pot)
+  const trunkPts: Array<[number, number, number]> = [
+    [0, 0, 385],
+    [8, 6, 520],
+    [22, 18, 680],
+    [48, 28, 860],
+    [70, 12, 1040],
+    [55, -18, 1220],
+    [18, -28, 1400],
+    [-30, -10, 1580],
+    [-70, 25, 1760],
+    [-40, 70, 1940],
+    [10, 95, 2100],
+  ];
+  const trunk = samplePolyline(trunkPts, 18);
+  for (let i = 0; i < trunk.length - 1; i++) {
+    const a = trunk[i];
+    const b = trunk[i + 1];
+    const t = i / (trunk.length - 2);
+    addSeg(`tree-trunk-${i}`, a[0], a[1], a[2], b[0] - a[0], b[1] - a[1], b[2] - a[2], lerp(26, 9, t));
   }
+
+  // Lower side branch (as in the photo)
+  const low: Array<[number, number, number]> = [
+    [55, -18, 1220],
+    [90, -40, 1280],
+    [130, -55, 1380],
+    [155, -40, 1500],
+    [145, -15, 1620],
+  ];
+  const lowS = samplePolyline(low, 8);
+  for (let i = 0; i < lowS.length - 1; i++) {
+    const a = lowS[i];
+    const b = lowS[i + 1];
+    addSeg(`tree-low-${i}`, a[0], a[1], a[2], b[0] - a[0], b[1] - a[1], b[2] - a[2], lerp(11, 5, i / (lowS.length - 2)));
+  }
+
+  // Upper forks
+  const forks: Array<Array<[number, number, number]>> = [
+    [[10, 95, 2100], [-40, 140, 2220], [-90, 170, 2340], [-120, 150, 2440]],
+    [[10, 95, 2100], [60, 80, 2240], [110, 40, 2360], [140, 10, 2460]],
+    [[-40, 70, 1940], [-90, 40, 2060], [-130, 0, 2180], [-150, -30, 2280]],
+    [[-70, 25, 1760], [-110, 80, 1880], [-90, 130, 2020]],
+  ];
+  forks.forEach((pts, fi) => {
+    const s = samplePolyline(pts, 7);
+    for (let i = 0; i < s.length - 1; i++) {
+      const a = s[i];
+      const b = s[i + 1];
+      addSeg(`tree-fork-${fi}-${i}`, a[0], a[1], a[2], b[0] - a[0], b[1] - a[1], b[2] - a[2], lerp(8, 4, i / (s.length - 2)));
+    }
+  });
+
+  const leafPath = (len: number, wid: number): Array<[number, number, number]> => {
+    const n = 8;
+    const pts: Array<[number, number, number]> = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const w = (wid / 2) * Math.sin(Math.PI * t);
+      pts.push([w, 0, t * len]);
+    }
+    for (let i = n - 1; i >= 1; i--) {
+      const t = i / n;
+      const w = (wid / 2) * Math.sin(Math.PI * t);
+      pts.push([-w, 0, t * len]);
+    }
+    return pts;
+  };
+
+  let leaf = 0;
+  const sprinkle = (
+    cx: number, cy: number, cz: number,
+    rx: number, ry: number, rz: number,
+    count: number,
+  ) => {
+    for (let i = 0; i < count; i++) {
+      const u = (i * 0.618033) % 1;
+      const v = (i * 0.414213) % 1;
+      const w = (i * 0.73205) % 1;
+      const theta = u * Math.PI * 2;
+      const phi = Math.acos(2 * v - 1);
+      const r = 0.25 + 0.75 * w;
+      const lx = cx + Math.sin(phi) * Math.cos(theta) * rx * r;
+      const ly = cy + Math.sin(phi) * Math.sin(theta) * ry * r;
+      const lz = FLOOR_T + cz + Math.cos(phi) * rz * r;
+      const len = 16 + (i % 5) * 3;
+      const wid = 8 + (i % 3) * 2;
+      leaf += 1;
+      doc = add(doc, {
+        id: `tree-leaf-${leaf}`,
+        type: "plant",
+        transform: {
+          ...identityTransform(),
+          position: [lx, ly, lz],
+          rotation: quatFromEulerDeg((i % 7) * 18 - 40, (i * 47) % 360, (i % 5) * 12 - 20),
+        },
+        geometry: {
+          type: "extrusion",
+          profile: { type: "polygon", outer: leafPath(len, wid), holes: [] },
+          height: 1.6,
+          direction: [0, 1, 0],
+        },
+        metadata: { name: `Leaf ${leaf}` },
+        style: i % 3 === 0 ? leafB : leafA,
+      }, rootId);
+    }
+  };
+
+  sprinkle(-40, 90, 2280, 280, 260, 180, 70);
+  sprinkle(80, 30, 2320, 220, 200, 150, 45);
+  sprinkle(-120, -10, 2140, 160, 150, 110, 28);
+  sprinkle(145, -20, 1580, 90, 80, 70, 18);
 
   return doc;
 }
@@ -583,7 +653,7 @@ export function createApartmentDocument(): PlanaDocument {
       "door-bath",
       "door",
       "Bath Door",
-      openingCenter(1.385, flipOffset(2.47, 0.88, 0.8), 0.8),
+      openingCenter(1.385, 0.5, 0.8),
       1.335,
       "x",
       0.8,

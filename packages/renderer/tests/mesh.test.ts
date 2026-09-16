@@ -39,6 +39,24 @@ describe("buildWallMesh", () => {
     expect(maxZ).toBeCloseTo(2800 * WORLD_FROM_MM, 6);
   });
 
+  it("door notch lintel sits at baseZ + cutout height", () => {
+    const mesh = buildWallMesh(
+      wallBase({
+        cutouts: [{ offset: 1000, width: 900, height: 2100, sill: 0 }],
+      }),
+      { mode: "full" },
+    );
+    const lintel = (100 + 2100) * WORLD_FROM_MM;
+    let found = false;
+    const e = mesh.edges!;
+    for (let i = 0; i < e.length; i += 6) {
+      const z0 = e[i + 2];
+      const z1 = e[i + 5];
+      if (Math.abs(z0 - lintel) < 1e-6 && Math.abs(z1 - lintel) < 1e-6) found = true;
+    }
+    expect(found).toBe(true);
+  });
+
   it("punches a door as a bottom notch in one extruded wall", () => {
     const mesh = buildWallMesh(
       wallBase({
@@ -61,11 +79,11 @@ describe("buildWallMesh", () => {
     expect(mesh.indices!.length).toBeGreaterThan(36);
   });
 
-  it("passive mode keeps corner verticals and floor/ceiling longs", () => {
+  it("passive mode keeps floor/ceiling longs without end-cap verticals", () => {
     const plain = buildWallMesh(wallBase(), { mode: "corners" });
     const full = buildWallMesh(wallBase(), { mode: "full" });
-    // 4 corner verticals (front/back × start/end) + 4 longs (front/back × floor/ceiling)
-    expect(plain.edges!.length).toBe(8 * 6);
+    // 4 longs (front/back × floor/ceiling)
+    expect(plain.edges!.length).toBe(4 * 6);
     expect(full.edges!.length).toBeGreaterThan(plain.edges!.length);
   });
 

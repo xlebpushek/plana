@@ -88,6 +88,110 @@ export function pointInWallFootprint(
   return t >= -0.05 && t <= 1.05;
 }
 
+export type RoomCornerVertical = {
+  x: number;
+  y: number;
+  z0: number;
+  z1: number;
+};
+
+function unitDir(a: [number, number], b: [number, number]): [number, number] | null {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return null;
+  return [dx / len, dy / len];
+}
+
+function endpointOf(seg: WallWorldSegment, which: "a" | "b"): [number, number] {
+  return which === "a" ? seg.a : seg.b;
+}
+
+function awayDir(seg: WallWorldSegment, from: "a" | "b"): [number, number] | null {
+  return from === "a" ? unitDir(seg.a, seg.b) : unitDir(seg.b, seg.a);
+}
+
+function perpendicular(a: [number, number], b: [number, number]): boolean {
+  return Math.abs(a[0] * b[0] + a[1] * b[1]) < 0.35;
+}
+
+type EndHit = { wall: WallWorldSegment; end: "a" | "b"; other: WallWorldSegment };
+
+function endHits(wall: WallWorldSegment, other: WallWorldSegment): EndHit[] {
+  const hits: EndHit[] = [];
+  if (pointInWallFootprint(wall.a[0], wall.a[1], other)) hits.push({ wall, end: "a", other });
+  if (pointInWallFootprint(wall.b[0], wall.b[1], other)) hits.push({ wall, end: "b", other });
+  return hits;
+}
+
+/**
+ * Inner + outer verticals at each L (2) and the two inner verticals at each T.
+ * One pair per wall intersection — not four end-cap edges per wall.
+ */
+export function computeRoomCornerVerticals(segments: WallWorldSegment[]): RoomCornerVertical[] {
+  const seen = new Set<string>();
+  const out: RoomCornerVertical[] = [];
+  const add = (x: number, y: number, z0: number, z1: number) => {
+    const key = `${Math.round(x / 4)}:${Math.round(y / 4)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ x, y, z0, z1 });
+  };
+
+  for (let i = 0; i < segments.length; i += 1) {
+    for (let j = i + 1; j < segments.length; j += 1) {
+      const a = segments[i];
+      const b = segments[j];
+      const z0 = Math.max(a.baseZ, b.baseZ);
+      const z1 = Math.min(a.baseZ + a.height, b.baseZ + b.height);
+      if (z1 - z0 < 1) continue;
+
+      const aHits = endHits(a, b);
+      const bHits = endHits(b, a);
+      const da = unitDir(a.a, a.b);
+      const db = unitDir(b.a, b.b);
+      if (!da || !db || !perpendicular(da, db)) continue;
+
+      if (aHits.length && bHits.length) {
+        const hitA = aHits[0];
+        const hitB = bHits[0];
+        const dA = awayDir(a, hitA.end);
+        const dB = awayDir(b, hitB.end);
+        if (!dA || !dB) continue;
+        const p = endpointOf(a, hitA.end);
+        add(
+          p[0] - dA[0] * (b.thickness / 2) - dB[0] * (a.thickness / 2),
+          p[1] - dA[1] * (b.thickness / 2) - dB[1] * (a.thickness / 2),
+          z0,
+          z1,
+        );
+        add(
+          p[0] + dA[0] * (b.thickness / 2) + dB[0] * (a.thickness / 2),
+          p[1] + dA[1] * (b.thickness / 2) + dB[1] * (a.thickness / 2),
+          z0,
+          z1,
+        );
+        continue;
+      }
+
+      const stemHit = aHits[0] ?? bHits[0];
+      if (!stemHit) continue;
+      const dS = awayDir(stemHit.wall, stemHit.end);
+      if (!dS) continue;
+      const p = endpointOf(stemHit.wall, stemHit.end);
+      const tThrough = stemHit.other.thickness / 2;
+      const tStem = stemHit.wall.thickness / 2;
+      const fx = p[0] + dS[0] * tThrough;
+      const fy = p[1] + dS[1] * tThrough;
+      const nx = -dS[1];
+      const ny = dS[0];
+      add(fx + nx * tStem, fy + ny * tStem, z0, z1);
+      add(fx - nx * tStem, fy - ny * tStem, z0, z1);
+    }
+  }
+  return out;
+}
+
 /** Which wall ends need top/bottom seam edges hidden (corners stay). */
 export function computeWallEndCapHiding(segments: WallWorldSegment[]): Map<string, WallEndCaps> {
   const result = new Map<string, WallEndCaps>();

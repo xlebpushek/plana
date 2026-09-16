@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   collectWallSegments,
+  computeRoomCornerVerticals,
   computeWallEndCapHiding,
   pointInWallFootprint,
 } from "../src/walls.js";
@@ -109,5 +110,7 @@ describe("wall junctions", () => {
     const hiding = computeWallEndCapHiding(collectWallSegments(doc));
     expect(hiding.get("north")?.hideEndSeam).toBe(true);
     expect(hiding.get("east")?.hideStartSeam).toBe(true);
+    const corners = computeRoomCornerVerticals(collectWallSegments(doc));
+    expect(corners).toHaveLength(2);
   });
 });
