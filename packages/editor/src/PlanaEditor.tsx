@@ -36,7 +36,6 @@ import {
   Trash2,
   Undo2,
   Upload,
-  X,
 } from "lucide-react";
 
 export type PlanaEditorProps = {
@@ -483,19 +482,7 @@ export function PlanaEditor({
       <div className="plana-layout">
         {(leftOpen || !mobile) && (
           <aside className={`plana-panel plana-panel--left ${leftOpen ? "is-open" : "is-collapsed"}`}>
-            <div className="plana-panel__title">
-              <span>Hierarchy</span>
-              {mobile && (
-                <button
-                  type="button"
-                  className="plana-icon-btn"
-                  aria-label="Close"
-                  onClick={() => setLeftOpen(false)}
-                >
-                  <X size={16} strokeWidth={1.8} />
-                </button>
-              )}
-            </div>
+            <div className="plana-panel__title">Hierarchy</div>
             <div className="plana-tree" ref={treeRef}>
               {rows.map(({ object, depth, childCount }) => {
                 const isSelected = selectedId === object.id;
@@ -637,19 +624,7 @@ export function PlanaEditor({
 
         {(rightOpen || !mobile) && (
           <aside className={`plana-panel plana-panel--right ${rightOpen ? "is-open" : "is-collapsed"}`}>
-            <div className="plana-panel__title">
-              <span>Inspector</span>
-              {mobile && (
-                <button
-                  type="button"
-                  className="plana-icon-btn"
-                  aria-label="Close"
-                  onClick={() => setRightOpen(false)}
-                >
-                  <X size={16} strokeWidth={1.8} />
-                </button>
-              )}
-            </div>
+            <div className="plana-panel__title">Inspector</div>
             {selected ? (
               <div className="plana-inspector">
                 <label>
