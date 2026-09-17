@@ -1,2 +1,2 @@
-export * from "./object.js";
-export * from "./group.js";
+export * from "./object";
+export * from "./group";

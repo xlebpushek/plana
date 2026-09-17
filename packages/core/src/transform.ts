@@ -19,13 +19,10 @@ export const TransformSchema = z.object({
   scale: Vec3Schema,
 });
 
-export const TransformPatchSchema = TransformSchema.partial();
-
 export type Vec2 = z.infer<typeof Vec2Schema>;
 export type Vec3 = z.infer<typeof Vec3Schema>;
 export type Quaternion = z.infer<typeof QuaternionSchema>;
 export type Transform = z.infer<typeof TransformSchema>;
-export type TransformPatch = z.infer<typeof TransformPatchSchema>;
 
 export const identityTransform = (): Transform => ({
   position: [0, 0, 0],

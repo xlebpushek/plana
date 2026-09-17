@@ -1,34 +1,39 @@
 # Plana
 
-Низкоуровневый 3D engine + React UI для планировок квартир/домов.
+Цельная библиотека для 3D-плана квартиры.
 
-## Packages
+- `@plana/core` — документ и геометрия без React.
+- `@plana/react` — единственная точка импорта UI: viewer и editor плюс общий Effector-стор внутри пакета.
 
+Viewer отдаёт экран через `ViewerProvider` и контролы вида. Editor отдаёт сайдбары и кнопки манипуляции объектами; ему обязателен `ViewerProvider`. Общий стор не экспортируется: он живёт внутри `@plana/react` (fork на каждый провайдер).
+
+`apps/demo` — пример хоста и сборка для GitHub Pages. Сцена квартиры лежит в `apps/demo/apartment.json` и не генерируется скриптом.
+
+```tsx
+import {
+  ViewerProvider,
+  Viewport,
+  FrameButton,
+  ViewHint,
+  EditorProvider,
+  Hierarchy,
+  Inspector,
+  HistoryButtons,
+  ImportExportButtons,
+  CreateObjectButton,
+} from "@plana/react";
+import "@plana/react/styles.css";
+
+<ViewerProvider document={apartment}>
+  <EditorProvider>
+    <Hierarchy />
+    <Viewport />
+    <Inspector />
+  </EditorProvider>
+</ViewerProvider>
 ```
-editor → viewer → renderer → core
-```
-
-- `@plana/core` — document/object/geometry/style/serialization (Zod, mm, без Three/React)
-- `@plana/renderer` — Three.js CAD renderer (transparent faces + colored edges)
-- `@plana/viewer` — React viewport (orbit/pan/zoom/selection)
-- `@plana/editor` — editor shell поверх Viewer
-
-## Demo (GitHub Pages)
-
-**https://xlebpushek.github.io/plana/**
-
-Один раз в Settings → Pages:
-1. **Source:** Deploy from a branch
-2. **Branch:** `gh-pages`
-3. **Folder:** `/ (root)`
-4. Save
-
-Дальше каждый push в `main` обновляет `gh-pages` через Actions.
-
-## Develop
 
 ```bash
 pnpm install
-pnpm --filter @plana/core test
-pnpm --filter @plana/editor dev
+pnpm dev
 ```

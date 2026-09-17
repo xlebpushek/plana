@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { Group, isGroup } from "../object/group.js";
-import { ObjectId, ObjectIdSchema, PlanaObject } from "../object/object.js";
-import { PlanaObjectSchema } from "../object/object.js";
-import { identityTransform } from "../transform.js";
+import { Group, isGroup } from "../object/group";
+import { ObjectId, ObjectIdSchema, PlanaObject } from "../object/object";
+import { PlanaObjectSchema } from "../object/object";
+import { identityTransform } from "../transform";
 
 export const PLANA_DOCUMENT_VERSION = 1;
 
@@ -41,18 +41,10 @@ export function createId(prefix = "obj"): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function getObject(document: PlanaDocument, id: ObjectId): PlanaObject | undefined {
-  return document.objects[id];
-}
-
 export function requireObject(document: PlanaDocument, id: ObjectId): PlanaObject {
   const object = document.objects[id];
   if (!object) throw new Error(`Object "${id}" not found`);
   return object;
-}
-
-export function hasObject(document: PlanaDocument, id: ObjectId): boolean {
-  return id in document.objects;
 }
 
 export function addObject(
@@ -134,15 +126,163 @@ export function updateObject(
   };
 }
 
-export function traverseObjects(
+export function extractSubtree(
   document: PlanaDocument,
-  visitor: (object: PlanaObject, depth: number) => void,
-  startId: ObjectId = document.root,
-  depth = 0,
-) {
-  const object = requireObject(document, startId);
-  visitor(object, depth);
-  for (const childId of object.children ?? []) {
-    traverseObjects(document, visitor, childId, depth + 1);
+  id: ObjectId,
+): { rootId: ObjectId; objects: Record<ObjectId, PlanaObject> } {
+  const objects: Record<ObjectId, PlanaObject> = {};
+  const walk = (oid: ObjectId) => {
+    const object = requireObject(document, oid);
+    objects[oid] = structuredClone(object);
+    for (const childId of object.children ?? []) walk(childId);
+  };
+  walk(id);
+  return { rootId: id, objects };
+}
+
+export function pasteSubtree(
+  document: PlanaDocument,
+  clip: { rootId: ObjectId; objects: Record<ObjectId, PlanaObject> },
+  options?: { parentId?: ObjectId; offset?: [number, number, number] },
+): { document: PlanaDocument; id: ObjectId } {
+  const source = clip.objects[clip.rootId];
+  if (!source) throw new Error("Clipboard is empty");
+  const parentId = options?.parentId ?? source.parent ?? document.root;
+  const parent = requireObject(document, parentId);
+  if (!isGroup(parent)) throw new Error(`Parent "${parentId}" is not a group`);
+
+  const idMap = new Map<ObjectId, ObjectId>();
+  const collect = (oid: ObjectId) => {
+    const object = clip.objects[oid];
+    const prefix = oid.replace(/_[a-z0-9]+$/i, "") || "obj";
+    idMap.set(oid, createId(prefix));
+    for (const childId of object.children ?? []) collect(childId);
+  };
+  collect(clip.rootId);
+
+  const objects: Record<ObjectId, PlanaObject> = { ...document.objects };
+  for (const [oldId, newId] of idMap) {
+    const object = clip.objects[oldId];
+    const isRootClone = oldId === clip.rootId;
+    const position = [...object.transform.position] as [number, number, number];
+    if (isRootClone && options?.offset) {
+      position[0] += options.offset[0];
+      position[1] += options.offset[1];
+      position[2] += options.offset[2];
+    }
+    objects[newId] = {
+      ...structuredClone(object),
+      id: newId,
+      parent: isRootClone ? parentId : idMap.get(object.parent ?? parentId) ?? parentId,
+      children: (object.children ?? []).map((childId) => idMap.get(childId)!),
+      transform: { ...structuredClone(object.transform), position },
+    };
   }
+
+  const nextParent = objects[parentId] as Group;
+  objects[parentId] = {
+    ...nextParent,
+    children: [...nextParent.children, idMap.get(clip.rootId)!],
+  };
+
+  return { document: { ...document, objects }, id: idMap.get(clip.rootId)! };
+}
+
+export function cloneObjectTree(
+  document: PlanaDocument,
+  id: ObjectId,
+  options?: { parentId?: ObjectId; offset?: [number, number, number] },
+): { document: PlanaDocument; id: ObjectId } {
+  if (id === document.root) throw new Error("Cannot clone root");
+  const source = requireObject(document, id);
+  const parentId = options?.parentId ?? source.parent ?? document.root;
+  const parent = requireObject(document, parentId);
+  if (!isGroup(parent)) throw new Error(`Parent "${parentId}" is not a group`);
+
+  const idMap = new Map<ObjectId, ObjectId>();
+  const collect = (oid: ObjectId) => {
+    const object = requireObject(document, oid);
+    const prefix = oid.replace(/_[a-z0-9]+$/i, "") || "obj";
+    idMap.set(oid, createId(prefix));
+    for (const childId of object.children ?? []) collect(childId);
+  };
+  collect(id);
+
+  const objects: Record<ObjectId, PlanaObject> = { ...document.objects };
+  for (const [oldId, newId] of idMap) {
+    const object = document.objects[oldId];
+    const isRootClone = oldId === id;
+    const position = [...object.transform.position] as [number, number, number];
+    if (isRootClone && options?.offset) {
+      position[0] += options.offset[0];
+      position[1] += options.offset[1];
+      position[2] += options.offset[2];
+    }
+    objects[newId] = {
+      ...structuredClone(object),
+      id: newId,
+      parent: isRootClone ? parentId : idMap.get(object.parent ?? parentId) ?? parentId,
+      children: (object.children ?? []).map((childId) => idMap.get(childId)!),
+      transform: { ...structuredClone(object.transform), position },
+    };
+  }
+
+  const nextParent = objects[parentId] as Group;
+  objects[parentId] = {
+    ...nextParent,
+    children: [...nextParent.children, idMap.get(id)!],
+  };
+
+  return { document: { ...document, objects }, id: idMap.get(id)! };
+}
+
+export function createWallObject(options?: {
+  id?: string;
+  name?: string;
+  length?: number;
+  thickness?: number;
+  height?: number;
+  baseZ?: number;
+}): PlanaObject {
+  const length = options?.length ?? 2000;
+  const thickness = options?.thickness ?? 150;
+  const height = options?.height ?? 2700;
+  const baseZ = options?.baseZ ?? 0;
+  const id = options?.id ?? createId("wall");
+  return {
+    id,
+    type: "wall",
+    transform: identityTransform(),
+    geometry: {
+      type: "wall",
+      path: {
+        type: "polyline",
+        points: [
+          [0, 0, 0],
+          [length, 0, 0],
+        ],
+        closed: false,
+      },
+      thickness,
+      height: { start: height, end: height },
+      baseZ,
+    },
+    metadata: { name: options?.name ?? "Wall" },
+  };
+}
+
+export function createBoxObject(options?: {
+  id?: string;
+  name?: string;
+  size?: [number, number, number];
+  type?: string;
+}): PlanaObject {
+  const id = options?.id ?? createId("box");
+  return {
+    id,
+    type: options?.type ?? "object",
+    transform: { ...identityTransform(), position: [0, 0, 0] },
+    geometry: { type: "box", size: options?.size ?? [1000, 1000, 1000] },
+    metadata: { name: options?.name ?? id },
+  };
 }
