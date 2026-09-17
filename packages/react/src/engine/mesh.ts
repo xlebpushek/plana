@@ -894,15 +894,21 @@ function leafPoint(
   thickness: number,
   cup: number,
 ): Vec3 {
-  const envelope = Math.sin(Math.PI * Math.pow(Math.min(1, Math.max(0, u)), 0.78));
+  const uu = Math.min(1, Math.max(0, u));
+  const base = Math.pow(Math.min(1, uu / 0.1), 0.55);
+  const lobe = Math.sin(Math.PI * Math.pow(uu, 0.72));
+  const waist = 0.5 + 0.5 * Math.sin(Math.PI * Math.pow(uu, 1.15));
+  const shoulders = 1 + 0.32 * Math.exp(-(((uu - 0.55) / 0.2) ** 2));
+  const tip = 1 - Math.pow(Math.max(0, (uu - 0.8) / 0.2), 1.25);
+  const envelope = Math.max(0, base * lobe * waist * shoulders * tip);
   const half = (width / 2) * envelope;
-  const arch = cup * width * (1 - v * v) * Math.sin(Math.PI * u);
+  const arch = cup * width * (1 - v * v) * Math.sin(Math.PI * uu);
   return [v * half * MM, (arch + thickness * 0.5) * MM, u * length * MM];
 }
 
 export function buildLeafMesh(geometry: Extract<Geometry, { type: "leaf" }>): RenderMesh {
   const buf = emptyBuffers();
-  const nu = geometry.segments ?? 8;
+  const nu = geometry.segments ?? 10;
   const nv = Math.max(4, nu - 2);
   const cup = geometry.cup ?? 0.35;
   const top: number[][] = [];
@@ -1018,8 +1024,8 @@ export function buildUnitLeafMesh(): RenderMesh {
     type: "leaf",
     length: 1000,
     width: 1000,
-    thickness: 0.5,
-    cup: 0.22,
-    segments: 4,
+    thickness: 1.2,
+    cup: 0.18,
+    segments: 10,
   });
 }

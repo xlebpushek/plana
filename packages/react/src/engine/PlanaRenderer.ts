@@ -104,7 +104,7 @@ const _scale = new THREE.Vector3();
 const _instance = new THREE.Matrix4();
 const _scaleMat = new THREE.Matrix4();
 const _color = new THREE.Color();
-const LEAF_FILL = 10;
+const LEAF_FILL = 1;
 const _jitter = new THREE.Matrix4();
 const _filled = new THREE.Matrix4();
 
