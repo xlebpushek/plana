@@ -212,13 +212,13 @@ export class PlanaRenderer {
     this.axesHelper = new THREE.AxesHelper(1.5);
     this.axesHelper.visible = false;
     this.scene.add(this.axesHelper);
-    this.applyCanvasSettings();
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.maxPolarAngle = Math.PI * 0.495;
     this.controls.addEventListener("change", () => this.onViewChange?.());
+    this.applyCanvasSettings();
 
     this.raycaster.params.Line = { threshold: 0.02 };
 
@@ -728,10 +728,12 @@ export class PlanaRenderer {
 
   private applyCanvasSettings() {
     const canvas = this.view.canvas;
-    this.controls.zoomSpeed = canvas.zoomSpeed;
-    this.controls.rotateSpeed = canvas.rotateSpeed;
-    this.controls.panSpeed = canvas.panSpeed;
-    this.controls.enableDamping = canvas.damping;
+    if (this.controls) {
+      this.controls.zoomSpeed = canvas.zoomSpeed;
+      this.controls.rotateSpeed = canvas.rotateSpeed;
+      this.controls.panSpeed = canvas.panSpeed;
+      this.controls.enableDamping = canvas.damping;
+    }
     const bg = new THREE.Color(canvas.background);
     this.webgl.setClearColor(bg, 1);
     this.scene.background = bg;
