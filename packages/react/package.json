@@ -1,5 +1,5 @@
 {
-  "name": "@plana/viewer",
+  "name": "@plana/react",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@plana/core": "workspace:*",
-    "@plana/renderer": "workspace:*"
+    "effector": "^23.4.4",
+    "effector-react": "^23.3.0",
+    "lucide-react": "^1.46.0"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -22,6 +24,8 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@types/three": "^0.180.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "three": "^0.180.0",
     "typescript": "^5.9.2"
   }

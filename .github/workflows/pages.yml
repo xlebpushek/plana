@@ -29,8 +29,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build static app
-        run: pnpm --filter web build
+      - name: Build demo
+        run: pnpm --filter demo build
         env:
           GITHUB_PAGES: "1"
 
@@ -38,7 +38,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: apps/web/out
+          publish_dir: apps/demo/out
           force_orphan: true
           enable_jekyll: false
           commit_message: "deploy: ${{ github.sha }}"

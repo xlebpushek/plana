@@ -1,39 +1,28 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useUnit } from "effector-react";
 
-import type { ObjectId, PlanaDocument } from "@plana/core";
-import { PlanaRenderer } from "@plana/renderer";
+import { PlanaRenderer } from "../engine/PlanaRenderer";
+import { $document, $frameTick, $selectedId, $selectedIds, selectId } from "../model/scene";
+import { useViewerScope } from "./ViewerProvider";
 
-export type PlanaViewerProps = {
-  document: PlanaDocument;
-  selectedIds?: ObjectId[];
-  activeId?: ObjectId;
-  className?: string;
-  onSelect?: (id?: ObjectId) => void;
-  /** Bump to re-centre the orbit pivot on the plan. */
-  focusKey?: number;
-};
-
-export function PlanaViewer({
-  document,
-  selectedIds = [],
-  activeId,
-  className,
-  onSelect,
-  focusKey = 0,
-}: PlanaViewerProps) {
+export function Viewport({ className }: { className?: string }) {
+  useViewerScope();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<PlanaRenderer | null>(null);
-  const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
+  const document = useUnit($document);
+  const selectedIds = useUnit($selectedIds);
+  const selectedId = useUnit($selectedId);
+  const frameTick = useUnit($frameTick);
+  const onSelect = useUnit(selectId);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const renderer = new PlanaRenderer(canvas);
     rendererRef.current = renderer;
-    renderer.setSelectHandler((id) => onSelectRef.current?.(id));
+    renderer.setSelectHandler((id) => onSelect(id));
 
     const observer = new ResizeObserver(() => {
       const rect = canvas.getBoundingClientRect();
@@ -48,20 +37,23 @@ export function PlanaViewer({
       renderer.dispose();
       rendererRef.current = null;
     };
-  }, []);
+  }, [onSelect]);
 
   useEffect(() => {
     rendererRef.current?.setDocument(document);
   }, [document]);
 
   useEffect(() => {
-    rendererRef.current?.setSelection({ selectedIds, activeId });
-  }, [selectedIds, activeId]);
+    rendererRef.current?.setSelection({
+      selectedIds,
+      activeId: selectedId ?? undefined,
+    });
+  }, [selectedIds, selectedId]);
 
   useEffect(() => {
-    if (!focusKey) return;
+    if (!frameTick) return;
     rendererRef.current?.frameDocument();
-  }, [focusKey]);
+  }, [frameTick]);
 
   return (
     <div className={["plana-viewer", className].filter(Boolean).join(" ")}>

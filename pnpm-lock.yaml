@@ -12,17 +12,17 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
-  apps/web:
+  apps/demo:
     dependencies:
       '@plana/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@plana/editor':
+      '@plana/react':
         specifier: workspace:*
-        version: link:../../packages/editor
-      '@plana/viewer':
-        specifier: workspace:*
-        version: link:../../packages/viewer
+        version: link:../../packages/react
+      lucide-react:
+        specifier: ^1.46.0
+        version: 1.46.0(react@19.3.0)
       next:
         specifier: ^15.5.4
         version: 15.5.25(@types/node@22.20.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -62,23 +62,20 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
-  packages/editor:
+  packages/react:
     dependencies:
       '@plana/core':
         specifier: workspace:*
         version: link:../core
-      '@plana/viewer':
-        specifier: workspace:*
-        version: link:../viewer
+      effector:
+        specifier: ^23.4.4
+        version: 23.4.4
+      effector-react:
+        specifier: ^23.3.0
+        version: 23.3.0(effector@23.4.4)(react@19.3.0)
       lucide-react:
         specifier: ^1.46.0
         version: 1.46.0(react@19.3.0)
-      react:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.3.0(react@19.3.0)
     devDependencies:
       '@types/react':
         specifier: ^19.1.0
@@ -89,53 +86,12 @@ importers:
       '@types/three':
         specifier: ^0.180.0
         version: 0.180.0
-      three:
-        specifier: ^0.180.0
-        version: 0.180.0
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-
-  packages/renderer:
-    dependencies:
-      '@plana/core':
-        specifier: workspace:*
-        version: link:../core
-    devDependencies:
-      '@types/three':
-        specifier: ^0.180.0
-        version: 0.180.0
-      three:
-        specifier: ^0.180.0
-        version: 0.180.0
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-
-  packages/viewer:
-    dependencies:
-      '@plana/core':
-        specifier: workspace:*
-        version: link:../core
-      '@plana/renderer':
-        specifier: workspace:*
-        version: link:../renderer
       react:
-        specifier: ^18.0.0 || ^19.0.0
+        specifier: ^19.1.0
         version: 19.3.0
       react-dom:
-        specifier: ^18.0.0 || ^19.0.0
+        specifier: ^19.1.0
         version: 19.3.0(react@19.3.0)
-    devDependencies:
-      '@types/react':
-        specifier: ^19.1.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.1.0
-        version: 19.3.0(@types/react@19.3.0)
-      '@types/three':
-        specifier: ^0.180.0
-        version: 0.180.0
       three:
         specifier: ^0.180.0
         version: 0.180.0
@@ -390,6 +346,17 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
+  effector-react@23.3.0:
+    resolution: {integrity: sha512-QR0+x1EnbiWhO80Yc0GVF+I9xCYoxBm3t+QLB5Wg+1uY1Q1BrSWDmKvJaJJZ/+9BU4RAr25yS5J2EkdWnicu8g==}
+    engines: {node: '>=11.0.0'}
+    peerDependencies:
+      effector: ^23.0.0
+      react: '>=16.8.0 <20.0.0'
+
+  effector@23.4.4:
+    resolution: {integrity: sha512-QkZboRN28K/iwxigDhlJcI3ux3aNbt8kYGGH/GkqWG0OlGeyuBhb7PdM89Iu+ogV8Lmz16xIlwnXR2UNWI6psg==}
+    engines: {node: '>=11.0.0'}
+
   fflate@0.8.3:
     resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
@@ -490,6 +457,11 @@ packages:
 
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
+  use-sync-external-store@1.7.0:
+    resolution: {integrity: sha512-6L+EeigHMQhdaIPNIFUKwfWJSwWFQ8gJbJ2DLOs5sDIegTwR9fRxvnM3uciHKjIZhFz+KAv2emhWMRvDmMcY8A==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
@@ -679,6 +651,14 @@ snapshots:
   detect-libc@2.1.2:
     optional: true
 
+  effector-react@23.3.0(effector@23.4.4)(react@19.3.0):
+    dependencies:
+      effector: 23.4.4
+      react: 19.3.0
+      use-sync-external-store: 1.7.0(react@19.3.0)
+
+  effector@23.4.4: {}
+
   fflate@0.8.3: {}
 
   lucide-react@1.46.0(react@19.3.0):
@@ -781,5 +761,9 @@ snapshots:
   typescript@5.9.3: {}
 
   undici-types@6.21.0: {}
+
+  use-sync-external-store@1.7.0(react@19.3.0):
+    dependencies:
+      react: 19.3.0
 
   zod@3.25.76: {}

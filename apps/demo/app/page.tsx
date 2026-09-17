@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 
-const Editor = dynamic(() => import("./editor"), { ssr: false });
+const App = dynamic(() => import("./app"), { ssr: false });
 
 export default function Page() {
-  return <Editor />;
+  return <App />;
 }

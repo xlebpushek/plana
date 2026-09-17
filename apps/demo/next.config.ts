@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   basePath,
   assetPrefix: basePath || undefined,
-  transpilePackages: ["@plana/core", "@plana/renderer", "@plana/viewer", "@plana/editor"],
+  transpilePackages: ["@plana/core", "@plana/react"],
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

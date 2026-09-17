@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter web build",
+    "dev": "pnpm --filter demo dev",
+    "build": "pnpm --filter demo build",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
