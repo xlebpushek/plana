@@ -7,7 +7,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ObjectId, PlanaObject } from "@plana/core";
 
 import { $document, $selectedId, $selectedIds, selectId } from "../model/scene";
-import { useEditor } from "./EditorProvider";
+import { useEditor } from "./context";
 import { useViewerScope } from "../viewer/ViewerProvider";
 
 function objectName(object: PlanaObject) {

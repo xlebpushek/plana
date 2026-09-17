@@ -21,6 +21,8 @@ export const HatchStyleSchema = z.object({
   spacing: z.number().positive(),
   angle: z.number().finite(),
   width: z.number().min(0),
+  inheritColor: z.boolean().optional(),
+  pattern: z.enum(["lines", "cross", "dots"]).optional(),
 });
 
 export const ObjectStyleSchema = z.object({

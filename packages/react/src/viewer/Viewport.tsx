@@ -5,6 +5,7 @@ import { useUnit } from "effector-react";
 
 import { PlanaRenderer } from "../engine/PlanaRenderer";
 import { $document, $frameTick, $selectedId, $selectedIds, selectId } from "../model/scene";
+import { $settings } from "../model/settings";
 import { useViewerScope } from "./ViewerProvider";
 
 export function Viewport({ className }: { className?: string }) {
@@ -16,6 +17,7 @@ export function Viewport({ className }: { className?: string }) {
   const selectedId = useUnit($selectedId);
   const frameTick = useUnit($frameTick);
   const onSelect = useUnit(selectId);
+  const settings = useUnit($settings);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -38,6 +40,10 @@ export function Viewport({ className }: { className?: string }) {
       rendererRef.current = null;
     };
   }, [onSelect]);
+
+  useEffect(() => {
+    rendererRef.current?.setSettings(settings);
+  }, [settings]);
 
   useEffect(() => {
     rendererRef.current?.setDocument(document);

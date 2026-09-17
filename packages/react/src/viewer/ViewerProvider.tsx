@@ -7,6 +7,7 @@ import { createContext, useContext, useMemo, useRef, type ReactNode } from "reac
 import type { PlanaDocument } from "@plana/core";
 
 import { $document } from "../model/scene";
+import { $settings, readStoredSettings } from "../model/settings";
 
 const ViewerContext = createContext<Scope | null>(null);
 
@@ -23,7 +24,11 @@ export type ViewerProviderProps = {
 
 export function ViewerProvider({ document, children }: ViewerProviderProps) {
   const initial = useRef(document);
-  const scope = useMemo(() => fork({ values: [[$document, initial.current]] }), []);
+  const stored = useRef(readStoredSettings());
+  const scope = useMemo(
+    () => fork({ values: [[$document, initial.current], [$settings, stored.current]] }),
+    [],
+  );
   return (
     <ViewerContext.Provider value={scope}>
       <Provider value={scope}>{children}</Provider>

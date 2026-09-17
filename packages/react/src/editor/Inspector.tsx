@@ -5,7 +5,8 @@ import { useUnit } from "effector-react";
 import { eulerDegFromQuat, quatFromEulerDeg, updateObject } from "@plana/core";
 
 import { $document, $selectedId, commitDocument } from "../model/scene";
-import { useEditor } from "./EditorProvider";
+import { $settings } from "../model/settings";
+import { useEditor } from "./context";
 import { useViewerScope } from "../viewer/ViewerProvider";
 
 function objectName(object: { metadata?: Record<string, unknown>; id: string }) {
@@ -18,6 +19,7 @@ export function Inspector({ className }: { className?: string }) {
   const document = useUnit($document);
   const selectedId = useUnit($selectedId);
   const commit = useUnit(commitDocument);
+  const nudge = useUnit($settings).canvas.nudgeMm;
   const selected = selectedId ? document.objects[selectedId] : undefined;
   const euler = selected ? eulerDegFromQuat(selected.transform.rotation) : [0, 0, 0];
 
@@ -60,6 +62,7 @@ export function Inspector({ className }: { className?: string }) {
                 <input
                   type="number"
                   inputMode="numeric"
+                  step={nudge}
                   value={Math.round(selected.transform.position[index])}
                   onChange={(event) => {
                     const position = [...selected.transform.position] as [number, number, number];
@@ -82,6 +85,7 @@ export function Inspector({ className }: { className?: string }) {
                 <input
                   type="number"
                   inputMode="numeric"
+                  step={nudge}
                   value={Math.round(euler[index])}
                   onChange={(event) => {
                     const next = [...euler] as [number, number, number];
@@ -112,6 +116,7 @@ export function Inspector({ className }: { className?: string }) {
                       <input
                         type="number"
                         inputMode="numeric"
+                        step={nudge}
                         value={Math.round(geo.size[index])}
                         onChange={(event) => {
                           const size = [...geo.size] as [number, number, number];

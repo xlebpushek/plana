@@ -7,6 +7,7 @@ import {
   deserialize,
   identityTransform,
   removeObject,
+  updateObject,
   type ObjectId,
   type PlanaDocument,
 } from "@plana/core";
@@ -172,4 +173,26 @@ sample({
   clock: importJson,
   fn: () => undefined,
   target: selectId,
+});
+
+export const nudgeSelected = createEvent<{ dx: number; dy: number; dz: number }>();
+
+const nudged = sample({
+  clock: nudgeSelected,
+  source: { document: $document, selectedId: $selectedId },
+  filter: ({ document, selectedId }) => Boolean(selectedId && selectedId !== document.root),
+  fn: ({ document, selectedId }, delta) => {
+    const object = document.objects[selectedId!];
+    const [x, y, z] = object.transform.position;
+    return updateObject(document, selectedId!, {
+      transform: {
+        ...object.transform,
+        position: [x + delta.dx, y + delta.dy, z + delta.dz],
+      },
+    });
+  },
+});
+sample({
+  clock: nudged,
+  target: commitDocument,
 });

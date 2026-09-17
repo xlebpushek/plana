@@ -4,6 +4,7 @@ import { Crosshair } from "lucide-react";
 import { useUnit } from "effector-react";
 
 import { frameScene } from "../model/scene";
+import { $settings } from "../model/settings";
 import { useViewerScope } from "./ViewerProvider";
 
 export function FrameButton() {
@@ -24,6 +25,8 @@ export function FrameButton() {
 
 export function ViewHint() {
   useViewerScope();
+  const settings = useUnit($settings);
+  if (!settings.canvas.showHint) return null;
   return (
     <div className="plana-hint">
       <span className="plana-hint-desktop">Orbit · pan · zoom · click</span>

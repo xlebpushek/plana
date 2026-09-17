@@ -12,6 +12,7 @@ import {
   HistoryButtons,
   ImportExportButtons,
   Inspector,
+  SettingsButton,
   ViewHint,
   ViewerProvider,
   Viewport,
@@ -86,6 +87,8 @@ export default function App() {
               <span className="plana-sep" />
               <FrameButton />
               <ImportExportButtons />
+              <span className="plana-sep" />
+              <SettingsButton />
             </div>
             <div className="plana-topbar-end">
               <button

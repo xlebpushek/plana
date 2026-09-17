@@ -28,7 +28,7 @@ import {
   redo,
   undo,
 } from "../model/scene";
-import { useEditor } from "./EditorProvider";
+import { useEditor } from "./context";
 import { useViewerScope } from "../viewer/ViewerProvider";
 
 export function HistoryButtons() {

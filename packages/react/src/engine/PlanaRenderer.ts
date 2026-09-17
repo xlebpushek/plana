@@ -20,7 +20,9 @@ import {
   unitGeometry,
   type InstanceProto,
 } from "./batch";
+import { hatchSegments } from "./hatch";
 import { WORLD_FROM_MM, buildRenderMesh, type WallMeshOptions } from "./mesh";
+import { defaultSettings, hatchRuleForType, type ProjectSettings } from "../model/settings";
 import {
   clipEdgesInsideWalls,
   collectWallSegments,
@@ -104,6 +106,9 @@ const _scale = new THREE.Vector3();
 const _instance = new THREE.Matrix4();
 const _scaleMat = new THREE.Matrix4();
 const _color = new THREE.Color();
+const _hatchMin = new THREE.Vector3();
+const _hatchMax = new THREE.Vector3();
+const _hatchPt = new THREE.Vector3();
 const LEAF_FILL = 1;
 const _jitter = new THREE.Matrix4();
 const _filled = new THREE.Matrix4();
@@ -164,6 +169,10 @@ export class PlanaRenderer {
   private pointerDown: { x: number; y: number } | null = null;
   private roomCorners?: THREE.LineSegments;
   private instanceEdges?: THREE.LineSegments;
+  private hatchLines?: THREE.LineSegments;
+  private gridHelper: THREE.GridHelper;
+  private axesHelper: THREE.AxesHelper;
+  private view: ProjectSettings = defaultSettings();
   private framed = false;
   private identity = new THREE.Matrix4();
 
@@ -194,9 +203,13 @@ export class PlanaRenderer {
     this.scene.add(fill);
     this.scene.add(this.root);
 
-    const grid = new THREE.GridHelper(20, 40, "#27272a", "#18181b");
-    grid.rotation.x = Math.PI / 2;
-    this.scene.add(grid);
+    this.gridHelper = new THREE.GridHelper(20, 40, "#27272a", "#18181b");
+    this.gridHelper.rotation.x = Math.PI / 2;
+    this.scene.add(this.gridHelper);
+    this.axesHelper = new THREE.AxesHelper(1.5);
+    this.axesHelper.visible = false;
+    this.scene.add(this.axesHelper);
+    this.applyCanvasSettings();
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
@@ -212,6 +225,12 @@ export class PlanaRenderer {
 
   setSelectHandler(handler?: (id?: ObjectId) => void) {
     this.onSelect = handler;
+  }
+
+  setSettings(settings: ProjectSettings) {
+    this.view = settings;
+    this.applyCanvasSettings();
+    if (this.document) this.rebuildHatch(this.document);
   }
 
   setSelection(selection: RendererSelection) {
@@ -261,6 +280,7 @@ export class PlanaRenderer {
     }
 
     this.rebuildInstanceBatches(document);
+    this.rebuildHatch(document);
 
     if (!this.framed && (this.runtimes.size > 0 || this.batches.size > 0)) {
       this.framed = true;
@@ -621,6 +641,121 @@ export class PlanaRenderer {
     this.rebuildInstanceEdges(edgePos, edgeCol);
   }
 
+  private applyCanvasSettings() {
+    const canvas = this.view.canvas;
+    this.controls.zoomSpeed = canvas.zoomSpeed;
+    this.controls.rotateSpeed = canvas.rotateSpeed;
+    this.controls.panSpeed = canvas.panSpeed;
+    this.controls.enableDamping = canvas.damping;
+    const bg = new THREE.Color(canvas.background);
+    this.webgl.setClearColor(bg, 1);
+    this.scene.background = bg;
+    this.scene.fog = new THREE.Fog(bg.getHex(), 20, 50);
+    this.gridHelper.visible = canvas.showGrid;
+    this.axesHelper.visible = canvas.showAxes;
+    this.gridHelper.scale.setScalar(Math.max(0.25, canvas.gridSize / 20));
+  }
+
+  private hatchRect(object: PlanaObject, world: THREE.Matrix4) {
+    const geo = object.geometry;
+    if (!geo) return null;
+    _hatchMin.set(Infinity, Infinity, Infinity);
+    _hatchMax.set(-Infinity, -Infinity, -Infinity);
+    const feed = (x: number, y: number, z: number) => {
+      _hatchPt.set(x, y, z).applyMatrix4(world);
+      _hatchMin.min(_hatchPt);
+      _hatchMax.max(_hatchPt);
+    };
+    if (geo.type === "box") {
+      const hx = (geo.size[0] * WORLD_FROM_MM) / 2;
+      const hy = (geo.size[1] * WORLD_FROM_MM) / 2;
+      const hz = geo.size[2] * WORLD_FROM_MM;
+      for (const x of [-hx, hx]) for (const y of [-hy, hy]) for (const z of [0, hz]) feed(x, y, z);
+    } else if (geo.type === "cylinder") {
+      const r = geo.radius * WORLD_FROM_MM;
+      const h = geo.height * WORLD_FROM_MM;
+      for (let i = 0; i < 8; i += 1) {
+        const a = (i / 8) * Math.PI * 2;
+        feed(Math.cos(a) * r, Math.sin(a) * r, 0);
+        feed(Math.cos(a) * r, Math.sin(a) * r, h);
+      }
+    } else if (geo.type === "floor") {
+      for (const [x, y] of geo.outline) feed(x * WORLD_FROM_MM, y * WORLD_FROM_MM, (geo.baseZ ?? 0) * WORLD_FROM_MM);
+    } else if (geo.type === "wall") {
+      const t = (geo.thickness * WORLD_FROM_MM) / 2;
+      const h = Math.max(geo.height.start, geo.height.end) * WORLD_FROM_MM;
+      const z0 = geo.baseZ * WORLD_FROM_MM;
+      for (const p of geo.path.points) {
+        feed(p[0] * WORLD_FROM_MM - t, p[1] * WORLD_FROM_MM - t, z0);
+        feed(p[0] * WORLD_FROM_MM + t, p[1] * WORLD_FROM_MM + t, z0 + h);
+      }
+    } else {
+      return null;
+    }
+    if (!Number.isFinite(_hatchMin.x)) return null;
+    return {
+      minX: _hatchMin.x,
+      maxX: _hatchMax.x,
+      minY: _hatchMin.y,
+      maxY: _hatchMax.y,
+      z: _hatchMax.z + 0.004,
+    };
+  }
+
+  private rebuildHatch(document: PlanaDocument) {
+    if (this.hatchLines) {
+      this.hatchLines.geometry.dispose();
+      (this.hatchLines.material as THREE.Material).dispose();
+      this.hatchLines.removeFromParent();
+      this.hatchLines = undefined;
+    }
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const visit = (id: ObjectId) => {
+      const object = document.objects[id];
+      if (!object) return;
+      const rule = hatchRuleForType(this.view, object.type);
+      if (rule && object.geometry) {
+        const world = this.worlds.get(id) ?? this.identity;
+        const rect = this.hatchRect(object, world);
+        if (rect) {
+          const segs = hatchSegments(
+            rect,
+            rule.spacing * WORLD_FROM_MM,
+            rule.angle,
+            rule.pattern,
+          );
+          const style = resolveObjectStyle(object.type, object.style);
+          const col = rule.inheritColor ? (style.edge?.color ?? style.face?.color) : rule.color;
+          const r = (col?.r ?? 228) / 255;
+          const g = (col?.g ?? 228) / 255;
+          const b = (col?.b ?? 231) / 255;
+          for (let i = 0; i < segs.length; i += 3) {
+            positions.push(segs[i], segs[i + 1], segs[i + 2]);
+            colors.push(r, g, b);
+          }
+        }
+      }
+      for (const child of object.children ?? []) visit(child);
+    };
+    visit(document.root);
+    if (!positions.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    const mat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.55,
+      depthTest: true,
+    });
+    const lines = new THREE.LineSegments(geo, mat);
+    lines.raycast = () => undefined;
+    lines.renderOrder = 4;
+    this.root.add(lines);
+    this.hatchLines = lines;
+  }
+
   private rebuildInstanceEdges(positions: number[], colors: number[]) {
     if (this.instanceEdges) {
       this.instanceEdges.geometry.dispose();
@@ -776,6 +911,12 @@ export class PlanaRenderer {
       (this.instanceEdges.material as THREE.Material).dispose();
       this.instanceEdges.removeFromParent();
       this.instanceEdges = undefined;
+    }
+    if (this.hatchLines) {
+      this.hatchLines.geometry.dispose();
+      (this.hatchLines.material as THREE.Material).dispose();
+      this.hatchLines.removeFromParent();
+      this.hatchLines = undefined;
     }
     for (const runtime of this.runtimes.values()) this.disposeRuntimeMeshes(runtime);
     this.runtimes.clear();

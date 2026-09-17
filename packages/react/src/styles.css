@@ -40,7 +40,7 @@
   min-height: var(--topbar-h);
   padding: 0 12px;
   border-bottom: 1px solid var(--border);
-  background: rgba(9, 9, 11, 0.92);
+  background: color-mix(in srgb, var(--background) 92%, transparent);
   backdrop-filter: blur(12px);
   z-index: 50;
 }
@@ -551,5 +551,273 @@
 @media (max-width: 560px) {
   .plana-grid3 {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+.plana-editor[data-theme="light"] {
+  --background: #f4f4f5;
+  --foreground: #18181b;
+  --card: #fafafa;
+  --muted: #e4e4e7;
+  --muted-foreground: #71717a;
+  --accent: #e4e4e7;
+  --border: #d4d4d8;
+  --input: #ffffff;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  color-scheme: light;
+}
+
+.plana-editor[data-theme="midnight"] {
+  --background: #070b14;
+  --foreground: #e8eefc;
+  --card: #0c1220;
+  --muted: #151c2c;
+  --muted-foreground: #93a0b8;
+  --accent: #1b2438;
+  --border: #243049;
+  --input: #151c2c;
+  --primary: #e8eefc;
+  --primary-foreground: #070b14;
+  color-scheme: dark;
+}
+
+.plana-set-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.plana-set-dialog {
+  width: min(860px, 100%);
+  max-height: min(720px, 92dvh);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+
+.plana-set-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.plana-set-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.plana-set-sub {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.plana-set-body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+}
+
+.plana-set-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  overflow: auto;
+}
+
+.plana-set-nav button {
+  appearance: none;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.plana-set-nav button strong {
+  display: block;
+  font-size: 13px;
+}
+
+.plana-set-nav button span {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.plana-set-nav button:hover,
+.plana-set-nav button.is-active {
+  background: var(--accent);
+}
+
+.plana-set-main {
+  padding: 16px 18px 20px;
+  overflow: auto;
+}
+
+.plana-set-main h3 {
+  margin: 18px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.plana-set-main h3:first-child {
+  margin-top: 0;
+}
+
+.plana-set-note {
+  margin: 0 0 12px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.plana-set-field {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.plana-set-field input,
+.plana-set-field select {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--border);
+  background: var(--input);
+  color: inherit;
+  border-radius: 6px;
+  padding: 0 8px;
+}
+
+.plana-set-field input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  justify-self: start;
+}
+
+.plana-set-field input[type="color"] {
+  padding: 2px;
+  width: 52px;
+}
+
+.plana-set-field input[type="range"] {
+  padding: 0;
+}
+
+.plana-set-stack {
+  margin-bottom: 8px;
+}
+
+.plana-set-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.plana-set-chip {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.plana-set-chip.is-active,
+.plana-set-chip:hover {
+  background: var(--accent);
+}
+
+.plana-set-chip.is-on {
+  border-color: var(--ring);
+}
+
+.plana-set-bind {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.plana-set-bind em {
+  display: block;
+  font-style: normal;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.plana-set-bind kbd {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--muted);
+}
+
+.plana-set-bind.is-active {
+  border-color: var(--ring);
+}
+
+.plana-set-reset {
+  margin-top: 20px;
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .plana-set-body {
+    grid-template-columns: 1fr;
+  }
+
+  .plana-set-nav {
+    flex-direction: row;
+    overflow: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
   }
 }
