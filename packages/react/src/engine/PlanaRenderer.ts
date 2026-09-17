@@ -3,12 +3,23 @@ import {
   type ObjectId,
   type PlanaDocument,
   type PlanaObject,
+  isCadGhostType,
   resolveObjectStyle,
   selectionEdgeColor,
 } from "@plana/core";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
+import {
+  compileWorldMatrices,
+  instanceScaleOf,
+  protoOf,
+  toBufferGeometry,
+  transformEdges,
+  unitEdgePositions,
+  unitGeometry,
+  type InstanceProto,
+} from "./batch";
 import { WORLD_FROM_MM, buildRenderMesh, type WallMeshOptions } from "./mesh";
 import {
   clipEdgesInsideWalls,
@@ -30,6 +41,13 @@ type ObjectRuntime = {
   geometryKey: string;
   face?: THREE.Mesh;
   edge?: THREE.LineSegments;
+};
+
+type InstanceBatch = {
+  key: string;
+  proto: InstanceProto;
+  mesh: THREE.InstancedMesh;
+  ids: ObjectId[];
 };
 
 function colorFromRgba(color: { r: number; g: number; b: number }) {
@@ -62,6 +80,53 @@ function hitPriority(type: string): number {
   return 2;
 }
 
+function batchKey(proto: InstanceProto, object: PlanaObject): string {
+  const style = resolveObjectStyle(object.type, object.style);
+  const face = style.face!;
+  const opacity = face.visible ? face.opacity : 0;
+  const opaque = object.geometry?.type === "leaf" || opacity >= 0.95;
+  const ghost = isCadGhostType(object.type) || (!opaque && opacity < 0.2);
+  return [
+    proto,
+    ghost ? "g" : "s",
+    opaque ? "o" : "t",
+    face.color.r,
+    face.color.g,
+    face.color.b,
+    ghost ? 0 : Math.round(opacity * 100),
+  ].join(":");
+}
+
+const _raySphere = new THREE.Sphere();
+const _rayMatrix = new THREE.Matrix4();
+const _rayPoint = new THREE.Vector3();
+const _scale = new THREE.Vector3();
+const _instance = new THREE.Matrix4();
+const _scaleMat = new THREE.Matrix4();
+const _color = new THREE.Color();
+function instancedSphereRaycast(
+  this: THREE.InstancedMesh,
+  raycaster: THREE.Raycaster,
+  intersects: THREE.Intersection[],
+) {
+  const sphere = this.geometry.boundingSphere;
+  if (!sphere) return;
+  for (let i = 0; i < this.count; i += 1) {
+    this.getMatrixAt(i, _rayMatrix);
+    _raySphere.center.copy(sphere.center).applyMatrix4(_rayMatrix);
+    _raySphere.radius = sphere.radius * _rayMatrix.getMaxScaleOnAxis();
+    if (!raycaster.ray.intersectSphere(_raySphere, _rayPoint)) continue;
+    const distance = raycaster.ray.origin.distanceTo(_rayPoint);
+    if (distance < raycaster.near || distance > raycaster.far) continue;
+    intersects.push({
+      distance,
+      point: _rayPoint.clone(),
+      object: this,
+      instanceId: i,
+    });
+  }
+}
+
 export class PlanaRenderer {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
@@ -70,6 +135,8 @@ export class PlanaRenderer {
 
   private readonly root = new THREE.Group();
   private readonly runtimes = new Map<ObjectId, ObjectRuntime>();
+  private readonly worlds = new Map<ObjectId, THREE.Matrix4>();
+  private readonly batches = new Map<string, InstanceBatch>();
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
   private frame = 0;
@@ -81,7 +148,9 @@ export class PlanaRenderer {
   private wallSegments: WallWorldSegment[] = [];
   private pointerDown: { x: number; y: number } | null = null;
   private roomCorners?: THREE.LineSegments;
+  private instanceEdges?: THREE.LineSegments;
   private framed = false;
+  private identity = new THREE.Matrix4();
 
   constructor(canvas: HTMLCanvasElement) {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
@@ -94,9 +163,10 @@ export class PlanaRenderer {
       alpha: false,
       powerPreference: "high-performance",
     });
-    this.webgl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.webgl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.webgl.setClearColor("#09090b", 1);
     this.webgl.outputColorSpace = THREE.SRGBColorSpace;
+    this.webgl.sortObjects = true;
 
     this.scene.background = new THREE.Color("#09090b");
     this.scene.fog = new THREE.Fog("#09090b", 20, 50);
@@ -118,7 +188,6 @@ export class PlanaRenderer {
     this.controls.dampingFactor = 0.08;
     this.controls.maxPolarAngle = Math.PI * 0.495;
 
-    // Prefer face hits; threshold helps thin geometry.
     this.raycaster.params.Line = { threshold: 0.02 };
 
     canvas.addEventListener("pointerdown", this.handlePointerDown);
@@ -144,7 +213,8 @@ export class PlanaRenderer {
       this.rebuildMeshes(runtime, object);
       runtime.geometryKey = geometryKey(object, this.wallMeshOptions(object.id));
     }
-    this.syncStyles(this.document);
+    this.syncSpecialStyles(this.document);
+    this.rebuildInstanceBatches(this.document);
   }
 
   setDocument(document: PlanaDocument) {
@@ -152,41 +222,32 @@ export class PlanaRenderer {
     this.wallSegments = collectWallSegments(document);
     this.wallCaps = computeWallEndCapHiding(this.wallSegments);
     this.rebuildRoomCorners(document);
-    const keep = new Set<ObjectId>();
+    compileWorldMatrices(document, this.worlds);
 
-    const visit = (id: ObjectId, parent: THREE.Object3D) => {
+    const keep = new Set<ObjectId>();
+    const visit = (id: ObjectId) => {
       const object = document.objects[id];
       if (!object) return;
       keep.add(id);
-
-      let runtime = this.runtimes.get(id);
-      const key = geometryKey(object, this.wallMeshOptions(id));
-      if (!runtime) {
-        runtime = this.createRuntime(object);
-        this.runtimes.set(id, runtime);
-      } else if (runtime.geometryKey !== key) {
-        this.disposeRuntimeMeshes(runtime);
-        this.rebuildMeshes(runtime, object);
-        runtime.geometryKey = key;
+      if (object.geometry && !protoOf(object.geometry)) {
+        this.upsertSpecial(object);
       }
-
-      if (runtime.group.parent !== parent) parent.add(runtime.group);
-      this.applyTransform(runtime.group, object);
-      this.applyStyle(runtime, object, document);
-
-      for (const childId of object.children ?? []) visit(childId, runtime.group);
+      for (const childId of object.children ?? []) visit(childId);
     };
-
-    visit(document.root, this.root);
+    visit(document.root);
 
     for (const [id, runtime] of this.runtimes) {
-      if (keep.has(id)) continue;
+      if (keep.has(id) && document.objects[id]?.geometry && !protoOf(document.objects[id].geometry)) {
+        continue;
+      }
       runtime.group.removeFromParent();
       this.disposeRuntimeMeshes(runtime);
       this.runtimes.delete(id);
     }
 
-    if (!this.framed && this.runtimes.size > 1) {
+    this.rebuildInstanceBatches(document);
+
+    if (!this.framed && (this.runtimes.size > 0 || this.batches.size > 0)) {
       this.framed = true;
       this.frameDocument();
     }
@@ -203,6 +264,7 @@ export class PlanaRenderer {
       const type = this.document?.objects[id]?.type;
       if (type !== "wall" && type !== "floor") continue;
       if (!runtime.face) continue;
+      runtime.group.updateWorldMatrix(true, false);
       box.expandByObject(runtime.face);
       anchored = true;
     }
@@ -245,6 +307,25 @@ export class PlanaRenderer {
     };
   }
 
+  private upsertSpecial(object: PlanaObject) {
+    const key = geometryKey(object, this.wallMeshOptions(object.id));
+    let runtime = this.runtimes.get(object.id);
+    if (!runtime) {
+      runtime = this.createRuntime(object);
+      this.runtimes.set(object.id, runtime);
+    } else if (runtime.geometryKey !== key) {
+      this.disposeRuntimeMeshes(runtime);
+      this.rebuildMeshes(runtime, object);
+      runtime.geometryKey = key;
+    }
+    if (runtime.group.parent !== this.root) this.root.add(runtime.group);
+    const world = this.worlds.get(object.id) ?? this.identity;
+    runtime.group.matrixAutoUpdate = false;
+    runtime.group.matrix.copy(world);
+    runtime.group.matrixWorldNeedsUpdate = true;
+    if (this.document) this.applyStyle(runtime, object, this.document);
+  }
+
   private createRuntime(object: PlanaObject): ObjectRuntime {
     const group = new THREE.Group();
     group.name = object.id;
@@ -263,21 +344,23 @@ export class PlanaRenderer {
     const mesh = buildRenderMesh(object.geometry, this.wallMeshOptions(object.id));
     if (!mesh) return;
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(mesh.positions, 3));
-    if (mesh.normals) geometry.setAttribute("normal", new THREE.BufferAttribute(mesh.normals, 3));
-    if (mesh.indices) geometry.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
-    geometry.computeVertexNormals();
-    geometry.computeBoundingSphere();
-
+    const geometry = toBufferGeometry(mesh);
+    const ghost = isCadGhostType(object.type) || object.type === "wall" || object.type === "floor";
     const face = new THREE.Mesh(
       geometry,
-      new THREE.MeshLambertMaterial({
-        transparent: true,
-        depthWrite: false,
-        depthTest: true,
-        side: THREE.DoubleSide,
-      }),
+      ghost
+        ? new THREE.MeshBasicMaterial({
+            transparent: true,
+            depthWrite: false,
+            depthTest: true,
+            side: THREE.DoubleSide,
+          })
+        : new THREE.MeshLambertMaterial({
+            transparent: true,
+            depthWrite: false,
+            depthTest: true,
+            side: THREE.DoubleSide,
+          }),
     );
     face.userData.planaId = object.id;
     face.userData.planaPick = true;
@@ -303,7 +386,6 @@ export class PlanaRenderer {
     }
   }
 
-  /** Wall edges are local metres; junctions are plan mm. */
   private clipWallEdges(edges: Float32Array, object: PlanaObject): Float32Array {
     if (this.wallSegments.length < 2) return edges;
     const [ox, oy, oz] = object.transform.position;
@@ -323,23 +405,15 @@ export class PlanaRenderer {
     return out;
   }
 
-  private applyTransform(group: THREE.Group, object: PlanaObject) {
-    const [x, y, z] = object.transform.position;
-    const [qx, qy, qz, qw] = object.transform.rotation;
-    const [sx, sy, sz] = object.transform.scale;
-    group.position.set(x * WORLD_FROM_MM, y * WORLD_FROM_MM, z * WORLD_FROM_MM);
-    group.quaternion.set(qx, qy, qz, qw);
-    group.scale.set(sx, sy, sz);
-  }
-
   private nearbyEdgeColors(document: PlanaDocument, objectId: ObjectId): Color[] {
     const colors: Color[] = [];
-    for (const [id, object] of Object.entries(document.objects)) {
-      if (id === objectId || id === document.root) continue;
-      if (!object.geometry) continue;
+    for (const runtime of this.runtimes.values()) {
+      if (runtime.objectId === objectId) continue;
+      const object = document.objects[runtime.objectId];
+      if (!object?.geometry) continue;
       const style = resolveObjectStyle(object.type, object.style);
       if (style.edge?.color) colors.push(style.edge.color);
-      if (colors.length >= 24) break;
+      if (colors.length >= 12) break;
     }
     return colors;
   }
@@ -349,14 +423,13 @@ export class PlanaRenderer {
     const style = resolveObjectStyle(object.type, object.style);
 
     if (runtime.face && style.face) {
-      const mat = runtime.face.material as THREE.MeshLambertMaterial;
+      const mat = runtime.face.material as THREE.MeshBasicMaterial | THREE.MeshLambertMaterial;
       mat.color = colorFromRgba(style.face.color);
       const opacity = style.face.visible ? style.face.opacity : 0;
-      mat.opacity = selected && opacity > 0 ? Math.min(1, opacity + 0.12) : opacity;
-      // Solid objects (furniture, plants) stay opaque so volume reads correctly.
-      mat.transparent = opacity < 0.95;
-      mat.depthWrite = opacity >= 0.95;
-      // Keep a tiny alpha for raycast stability on "invisible" CAD walls.
+      const opaque = opacity >= 0.95;
+      mat.opacity = selected && opacity > 0 && !opaque ? Math.min(1, opacity + 0.08) : opacity;
+      mat.transparent = !opaque;
+      mat.depthWrite = opaque;
       mat.colorWrite = opacity > 0.001 || object.type === "wall";
       if (object.type === "wall" && opacity < 0.001) mat.opacity = 0.001;
       runtime.face.visible = true;
@@ -366,26 +439,178 @@ export class PlanaRenderer {
     if (runtime.edge && style.edge) {
       const mat = runtime.edge.material as THREE.LineBasicMaterial;
       if (selected) {
-        const accent = selectionEdgeColor(
-          style.edge.color,
-          this.nearbyEdgeColors(document, object.id),
+        mat.color = colorFromRgba(
+          selectionEdgeColor(style.edge.color, this.nearbyEdgeColors(document, object.id)),
         );
-        mat.color = colorFromRgba(accent);
       } else {
         mat.color = colorFromRgba(style.edge.color);
       }
       mat.opacity = style.edge.opacity;
       mat.visible = style.edge.visible;
       runtime.edge.visible = style.edge.visible;
-      runtime.edge.renderOrder = selected ? 10 : 0;
+      runtime.edge.renderOrder = selected ? 10 : 2;
     }
   }
 
-  private syncStyles(document: PlanaDocument) {
+  private syncSpecialStyles(document: PlanaDocument) {
     for (const [id, runtime] of this.runtimes) {
       const object = document.objects[id];
       if (object) this.applyStyle(runtime, object, document);
     }
+  }
+
+  private rebuildInstanceBatches(document: PlanaDocument) {
+    const buckets = new Map<
+      string,
+      { proto: InstanceProto; objects: PlanaObject[]; ghost: boolean; opaque: boolean; opacity: number }
+    >();
+
+    const visit = (id: ObjectId) => {
+      const object = document.objects[id];
+      if (!object) return;
+      const proto = protoOf(object.geometry);
+      if (proto && object.geometry) {
+        const key = batchKey(proto, object);
+        let bucket = buckets.get(key);
+        if (!bucket) {
+          const style = resolveObjectStyle(object.type, object.style);
+          const opacity = style.face!.visible ? style.face!.opacity : 0;
+          const opaque = object.geometry.type === "leaf" || opacity >= 0.95;
+          bucket = {
+            proto,
+            objects: [],
+            ghost: isCadGhostType(object.type) || (!opaque && opacity < 0.2),
+            opaque,
+            opacity: opaque ? 1 : opacity,
+          };
+          buckets.set(key, bucket);
+        }
+        bucket.objects.push(object);
+      }
+      for (const childId of object.children ?? []) visit(childId);
+    };
+    visit(document.root);
+
+    for (const key of [...this.batches.keys()]) {
+      if (!buckets.has(key)) {
+        this.disposeBatch(this.batches.get(key)!);
+        this.batches.delete(key);
+      }
+    }
+
+    const edgePos: number[] = [];
+    const edgeCol: number[] = [];
+
+    for (const [key, bucket] of buckets) {
+      let batch = this.batches.get(key);
+      const n = bucket.objects.length;
+      if (!batch || batch.mesh.count < n) {
+        if (batch) this.disposeBatch(batch);
+        const geo = unitGeometry(bucket.proto);
+        const mat = bucket.ghost
+          ? new THREE.MeshBasicMaterial({
+              color: 0xffffff,
+              transparent: true,
+              opacity: bucket.opacity,
+              depthWrite: false,
+              depthTest: true,
+              side: THREE.DoubleSide,
+            })
+          : new THREE.MeshLambertMaterial({
+              color: 0xffffff,
+              transparent: !bucket.opaque,
+              opacity: bucket.opaque ? 1 : bucket.opacity,
+              depthWrite: bucket.opaque,
+              depthTest: true,
+              side: THREE.DoubleSide,
+            });
+        const mesh = new THREE.InstancedMesh(geo, mat, n);
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        if (!mesh.instanceColor) {
+          mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
+        }
+        mesh.userData.planaBatch = key;
+        mesh.frustumCulled = true;
+        mesh.raycast = instancedSphereRaycast;
+        this.root.add(mesh);
+        batch = { key, proto: bucket.proto, mesh, ids: [] };
+        this.batches.set(key, batch);
+      }
+
+      batch.ids = bucket.objects.map((object) => object.id);
+      batch.mesh.count = n;
+      const selectedSet = new Set(this.selection.selectedIds);
+
+      for (let i = 0; i < n; i += 1) {
+        const object = bucket.objects[i];
+        const world = this.worlds.get(object.id) ?? this.identity;
+        instanceScaleOf(object.geometry!, _scale);
+        _scaleMat.makeScale(_scale.x, _scale.y, _scale.z);
+        _instance.multiplyMatrices(world, _scaleMat);
+        batch.mesh.setMatrixAt(i, _instance);
+
+        const style = resolveObjectStyle(object.type, object.style);
+        const selected = selectedSet.has(object.id);
+        if (selected) {
+          _color.setRGB(1, 0.55, 0.42);
+        } else {
+          const c = style.face!.color;
+          _color.setRGB(c.r / 255, c.g / 255, c.b / 255);
+        }
+        batch.mesh.setColorAt(i, _color);
+
+        if (bucket.proto !== "leaf" && style.edge?.visible) {
+          const edges = unitEdgePositions(bucket.proto);
+          if (edges) {
+            if (selected) {
+              _color.setRGB(1, 0.45, 0.38);
+            } else {
+              const c = style.edge.color;
+              _color.setRGB(c.r / 255, c.g / 255, c.b / 255);
+            }
+            transformEdges(edges, _instance, edgePos, edgeCol, _color);
+          }
+        }
+      }
+
+      batch.mesh.instanceMatrix.needsUpdate = true;
+      if (batch.mesh.instanceColor) batch.mesh.instanceColor.needsUpdate = true;
+      batch.mesh.computeBoundingSphere();
+      batch.mesh.renderOrder = bucket.opaque ? 0 : 1;
+    }
+
+    this.rebuildInstanceEdges(edgePos, edgeCol);
+  }
+
+  private rebuildInstanceEdges(positions: number[], colors: number[]) {
+    if (this.instanceEdges) {
+      this.instanceEdges.geometry.dispose();
+      (this.instanceEdges.material as THREE.Material).dispose();
+      this.instanceEdges.removeFromParent();
+      this.instanceEdges = undefined;
+    }
+    if (!positions.length) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    const mat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.92,
+      depthTest: true,
+    });
+    const lines = new THREE.LineSegments(geo, mat);
+    lines.raycast = () => undefined;
+    lines.renderOrder = 3;
+    lines.frustumCulled = true;
+    this.root.add(lines);
+    this.instanceEdges = lines;
+  }
+
+  private disposeBatch(batch: InstanceBatch) {
+    batch.mesh.removeFromParent();
+    (batch.mesh.material as THREE.Material).dispose();
+    batch.mesh.dispose();
   }
 
   private disposeRuntimeMeshes(runtime: ObjectRuntime) {
@@ -424,32 +649,39 @@ export class PlanaRenderer {
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.pointer, this.camera);
 
-    const faces: THREE.Object3D[] = [];
+    const pick: THREE.Object3D[] = [];
     for (const runtime of this.runtimes.values()) {
-      if (runtime.face) faces.push(runtime.face);
+      if (runtime.face) pick.push(runtime.face);
     }
-    const hits = this.raycaster.intersectObjects(faces, false);
+    for (const batch of this.batches.values()) pick.push(batch.mesh);
+
+    const hits = this.raycaster.intersectObjects(pick, false);
     if (!hits.length) {
       this.onSelect(undefined);
       return;
     }
 
-    const typeOf = (hit: THREE.Intersection) =>
-      this.document?.objects[String(hit.object.userData.planaId ?? "")]?.type ?? "";
+    const idOf = (hit: THREE.Intersection): ObjectId | undefined => {
+      const direct = hit.object.userData.planaId as ObjectId | undefined;
+      if (direct) return direct;
+      const key = hit.object.userData.planaBatch as string | undefined;
+      if (key == null || hit.instanceId == null) return undefined;
+      return this.batches.get(key)?.ids[hit.instanceId];
+    };
 
-    // Prefer non-floor hits: large slabs steal clicks under a downward camera.
+    const typeOf = (hit: THREE.Intersection) =>
+      this.document?.objects[String(idOf(hit) ?? "")]?.type ?? "";
+
     const nonFloor = hits.filter((h) => typeOf(h) !== "floor");
     const pool = nonFloor.length > 0 ? nonFloor : hits;
 
     pool.sort((a, b) => {
       const distDelta = a.distance - b.distance;
-      // Within ~8 cm prefer openings/furniture over walls (coplanar overlaps).
       if (Math.abs(distDelta) > 0.08) return distDelta;
       return hitPriority(typeOf(a)) - hitPriority(typeOf(b));
     });
 
-    const id = pool[0]?.object.userData.planaId as ObjectId | undefined;
-    this.onSelect(id);
+    this.onSelect(idOf(pool[0]));
   };
 
   private rebuildRoomCorners(document: PlanaDocument) {
@@ -500,8 +732,16 @@ export class PlanaRenderer {
       this.roomCorners.removeFromParent();
       this.roomCorners = undefined;
     }
+    if (this.instanceEdges) {
+      this.instanceEdges.geometry.dispose();
+      (this.instanceEdges.material as THREE.Material).dispose();
+      this.instanceEdges.removeFromParent();
+      this.instanceEdges = undefined;
+    }
     for (const runtime of this.runtimes.values()) this.disposeRuntimeMeshes(runtime);
     this.runtimes.clear();
+    for (const batch of this.batches.values()) this.disposeBatch(batch);
+    this.batches.clear();
     this.webgl.dispose();
   }
 }

@@ -37,6 +37,31 @@ export type ObjectStyle = z.infer<typeof ObjectStyleSchema>;
 const WHITE = rgba(245, 245, 245, 1);
 const WHITE_DIM = rgba(228, 228, 231, 1);
 
+/** Mass furniture: faint fill, CAD edges. Dumped solid opacities are ignored. */
+const CAD_GHOST_TYPES = new Set([
+  "sofa",
+  "bed",
+  "chair",
+  "table",
+  "shelving",
+  "furniture",
+  "cabinet",
+  "desk",
+  "wardrobe",
+  "clock",
+  "lamp",
+  "vase",
+  "decor",
+  "appliance",
+  "socket",
+  "light",
+  "smart-switch",
+]);
+
+export function isCadGhostType(type: string) {
+  return CAD_GHOST_TYPES.has(type);
+}
+
 export const defaultFaceStyle = (): FaceStyle => ({
   color: WHITE,
   opacity: 0.06,
@@ -87,8 +112,8 @@ export function defaultStyleForType(type: string): ObjectStyle {
     case "desk":
     case "wardrobe":
       return {
-        face: { color: WHITE, opacity: 0.08, visible: true },
-        edge: { color: WHITE_DIM, width: 1.1, opacity: 0.9, visible: true },
+        face: { color: WHITE, opacity: 0.035, visible: true },
+        edge: { color: WHITE_DIM, width: 1.15, opacity: 0.92, visible: true },
       };
     case "plant":
     case "flower":
@@ -106,8 +131,8 @@ export function defaultStyleForType(type: string): ObjectStyle {
     case "light":
     case "smart-switch":
       return {
-        face: { color: WHITE, opacity: 0.1, visible: true },
-        edge: { color: WHITE_DIM, width: 1, opacity: 0.9, visible: true },
+        face: { color: WHITE, opacity: 0.035, visible: true },
+        edge: { color: WHITE_DIM, width: 1.1, opacity: 0.92, visible: true },
       };
     default:
       return {
@@ -119,9 +144,15 @@ export function defaultStyleForType(type: string): ObjectStyle {
 
 export function resolveObjectStyle(type: string, style?: ObjectStyle): ObjectStyle {
   const base = defaultStyleForType(type);
-  return {
-    face: { ...base.face!, ...style?.face },
-    edge: { ...base.edge!, ...style?.edge },
-    hatch: style?.hatch ?? base.hatch,
-  };
+  const face = { ...base.face!, ...style?.face };
+  const edge = { ...base.edge!, ...style?.edge };
+  if (isCadGhostType(type)) {
+    face.opacity = base.face!.opacity;
+    face.visible = true;
+    edge.color = base.edge!.color;
+    edge.opacity = base.edge!.opacity;
+    edge.visible = true;
+    edge.width = Math.max(edge.width, base.edge!.width);
+  }
+  return { face, edge, hatch: style?.hatch ?? base.hatch };
 }

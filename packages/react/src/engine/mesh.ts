@@ -996,3 +996,30 @@ export function buildRenderMesh(
 
   return null;
 }
+
+/** 1 m box / cylinder / leaf — instance scale is size_mm / 1000. */
+export function buildUnitBoxMesh(): RenderMesh {
+  const buf = emptyBuffers();
+  pushBox(buf, 1000, 1000, 1000);
+  return toMesh(buf);
+}
+
+export function buildUnitCylinderMesh(): RenderMesh {
+  return buildRenderMesh({
+    type: "cylinder",
+    radius: 1000,
+    height: 1000,
+    radialSegments: 12,
+  })!;
+}
+
+export function buildUnitLeafMesh(): RenderMesh {
+  return buildLeafMesh({
+    type: "leaf",
+    length: 1000,
+    width: 1000,
+    thickness: 0.5,
+    cup: 0.22,
+    segments: 4,
+  });
+}
