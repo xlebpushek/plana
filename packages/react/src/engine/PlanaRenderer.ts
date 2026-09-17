@@ -104,6 +104,20 @@ const _scale = new THREE.Vector3();
 const _instance = new THREE.Matrix4();
 const _scaleMat = new THREE.Matrix4();
 const _color = new THREE.Color();
+const LEAF_FILL = 10;
+const _jitter = new THREE.Matrix4();
+const _filled = new THREE.Matrix4();
+
+function mulberry32(seed: number) {
+  let a = seed | 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function instancedSphereRaycast(
   this: THREE.InstancedMesh,
   raycaster: THREE.Raycaster,
@@ -111,7 +125,8 @@ function instancedSphereRaycast(
 ) {
   const sphere = this.geometry.boundingSphere;
   if (!sphere) return;
-  for (let i = 0; i < this.count; i += 1) {
+  const limit = (this.userData.pickCount as number | undefined) ?? this.count;
+  for (let i = 0; i < limit; i += 1) {
     this.getMatrixAt(i, _rayMatrix);
     _raySphere.center.copy(sphere.center).applyMatrix4(_rayMatrix);
     _raySphere.radius = sphere.radius * _rayMatrix.getMaxScaleOnAxis();
@@ -504,7 +519,9 @@ export class PlanaRenderer {
     for (const [key, bucket] of buckets) {
       let batch = this.batches.get(key);
       const n = bucket.objects.length;
-      if (!batch || batch.mesh.count < n) {
+      const copies = bucket.proto === "leaf" ? LEAF_FILL : 1;
+      const total = n * copies;
+      if (!batch || (batch.mesh.userData.capacity as number) < total) {
         if (batch) this.disposeBatch(batch);
         const geo = unitGeometry(bucket.proto);
         const mat = bucket.ghost
@@ -524,12 +541,12 @@ export class PlanaRenderer {
               depthTest: true,
               side: THREE.DoubleSide,
             });
-        const mesh = new THREE.InstancedMesh(geo, mat, n);
+        const mesh = new THREE.InstancedMesh(geo, mat, total);
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        if (!mesh.instanceColor) {
-          mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
-        }
+        mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(total * 3), 3);
         mesh.userData.planaBatch = key;
+        mesh.userData.capacity = total;
+        mesh.userData.pickCount = n;
         mesh.frustumCulled = true;
         mesh.raycast = instancedSphereRaycast;
         this.root.add(mesh);
@@ -537,9 +554,11 @@ export class PlanaRenderer {
         this.batches.set(key, batch);
       }
 
-      batch.ids = bucket.objects.map((object) => object.id);
-      batch.mesh.count = n;
+      const ids: ObjectId[] = new Array(total);
+      batch.mesh.count = total;
+      batch.mesh.userData.pickCount = n;
       const selectedSet = new Set(this.selection.selectedIds);
+      const rng = bucket.proto === "leaf" ? mulberry32(0x51eaf00d) : undefined;
 
       for (let i = 0; i < n; i += 1) {
         const object = bucket.objects[i];
@@ -548,6 +567,7 @@ export class PlanaRenderer {
         _scaleMat.makeScale(_scale.x, _scale.y, _scale.z);
         _instance.multiplyMatrices(world, _scaleMat);
         batch.mesh.setMatrixAt(i, _instance);
+        ids[i] = object.id;
 
         const style = resolveObjectStyle(object.type, object.style);
         const selected = selectedSet.has(object.id);
@@ -571,7 +591,26 @@ export class PlanaRenderer {
             transformEdges(edges, _instance, edgePos, edgeCol, _color);
           }
         }
+
+        if (rng) {
+          for (let c = 1; c < copies; c += 1) {
+            const slot = i + c * n;
+            _jitter.makeTranslation(
+              (rng() - 0.5) * 0.09,
+              (rng() - 0.5) * 0.09,
+              (rng() - 0.5) * 0.055,
+            );
+            const s = 0.82 + rng() * 0.32;
+            _scaleMat.makeScale(s, s, s);
+            _filled.multiplyMatrices(_instance, _scaleMat);
+            _filled.multiply(_jitter);
+            batch.mesh.setMatrixAt(slot, _filled);
+            batch.mesh.setColorAt(slot, _color);
+            ids[slot] = object.id;
+          }
+        }
       }
+      batch.ids = ids;
 
       batch.mesh.instanceMatrix.needsUpdate = true;
       if (batch.mesh.instanceColor) batch.mesh.instanceColor.needsUpdate = true;
