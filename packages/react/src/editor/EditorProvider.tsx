@@ -5,7 +5,7 @@ import { useUnit } from "effector-react";
 
 import { EditorContext } from "./context";
 import { SettingsModal, applyEditorChrome } from "./Settings";
-import { deleteSelected, frameScene, nudgeSelected, redo, undo } from "../model/scene";
+import { deleteSelected, duplicateSelected, copySelected, cutSelected, pasteClipboard, frameScene, nudgeSelected, redo, requestZoom, undo } from "../model/scene";
 import {
   $settings,
   $settingsOpen,
@@ -22,6 +22,11 @@ export function EditorProvider({ children }: { children: ReactNode }) {
   const runDelete = useUnit(deleteSelected);
   const runFrame = useUnit(frameScene);
   const runNudge = useUnit(nudgeSelected);
+  const runDuplicate = useUnit(duplicateSelected);
+  const runCopy = useUnit(copySelected);
+  const runCut = useUnit(cutSelected);
+  const runPaste = useUnit(pasteClipboard);
+  const runZoom = useUnit(requestZoom);
   const settings = useUnit($settings);
   const settingsOpen = useUnit($settingsOpen);
   const setOpen = useUnit(openSettings);
@@ -78,6 +83,36 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         patch({ hatch: { world: { enabled: !settings.hatch.world.enabled } } });
         return;
       }
+      if (eventMatchesShortcut(event, map.duplicate)) {
+        event.preventDefault();
+        runDuplicate();
+        return;
+      }
+      if (eventMatchesShortcut(event, map.copy)) {
+        event.preventDefault();
+        runCopy();
+        return;
+      }
+      if (eventMatchesShortcut(event, map.paste)) {
+        event.preventDefault();
+        runPaste();
+        return;
+      }
+      if (eventMatchesShortcut(event, map.cut)) {
+        event.preventDefault();
+        runCut();
+        return;
+      }
+      if (eventMatchesShortcut(event, map.zoomIn)) {
+        event.preventDefault();
+        runZoom("in");
+        return;
+      }
+      if (eventMatchesShortcut(event, map.zoomOut)) {
+        event.preventDefault();
+        runZoom("out");
+        return;
+      }
       if (event.key.startsWith("Arrow")) {
         event.preventDefault();
         const step = event.shiftKey ? settings.canvas.nudgeShiftMm : settings.canvas.nudgeMm;
@@ -96,7 +131,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [patch, runDelete, runFrame, runNudge, runRedo, runUndo, setOpen, settings, settingsOpen]);
+  }, [patch, runCopy, runCut, runDelete, runDuplicate, runFrame, runNudge, runPaste, runRedo, runUndo, runZoom, setOpen, settings, settingsOpen]);
 
   return (
     <EditorContext.Provider value={true}>

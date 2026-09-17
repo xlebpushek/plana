@@ -1,15 +1,19 @@
 import {
   addObject,
+  cloneObjectTree,
   createBoxObject,
   createDocument,
   createId,
   createWallObject,
   deserialize,
+  extractSubtree,
   identityTransform,
+  pasteSubtree,
   removeObject,
   updateObject,
   type ObjectId,
   type PlanaDocument,
+  type PlanaObject,
 } from "@plana/core";
 import { combine, createEvent, createStore, sample } from "effector";
 
@@ -173,6 +177,76 @@ sample({
   clock: importJson,
   fn: () => undefined,
   target: selectId,
+});
+
+export const duplicateSelected = createEvent();
+export const copySelected = createEvent();
+export const cutSelected = createEvent();
+export const pasteClipboard = createEvent();
+export const requestZoom = createEvent<"in" | "out" | "fit">();
+export const setZoomPercent = createEvent<number>();
+export const $zoomPercent = createStore(100).on(setZoomPercent, (_, value) => value);
+
+export const $clipboard = createStore<{
+  rootId: ObjectId;
+  objects: Record<ObjectId, PlanaObject>;
+} | null>(null);
+
+sample({
+  clock: copySelected,
+  source: { document: $document, selectedId: $selectedId },
+  filter: ({ document, selectedId }) => Boolean(selectedId && selectedId !== document.root),
+  fn: ({ document, selectedId }) => extractSubtree(document, selectedId!),
+  target: $clipboard,
+});
+
+const duplicated = sample({
+  clock: duplicateSelected,
+  source: { document: $document, selectedId: $selectedId },
+  filter: ({ document, selectedId }) => Boolean(selectedId && selectedId !== document.root),
+  fn: ({ document, selectedId }) =>
+    cloneObjectTree(document, selectedId!, { offset: [120, 120, 0] }),
+});
+sample({
+  clock: duplicated,
+  fn: ({ document }) => document,
+  target: commitDocument,
+});
+sample({
+  clock: duplicated,
+  fn: ({ id }) => id,
+  target: selectId,
+});
+
+const pasted = sample({
+  clock: pasteClipboard,
+  source: { document: $document, clipboard: $clipboard, selectedId: $selectedId },
+  filter: ({ clipboard }) => Boolean(clipboard),
+  fn: ({ document, clipboard, selectedId }) => {
+    const parentId =
+      (selectedId && document.objects[selectedId]?.children ? selectedId : document.objects[selectedId ?? ""]?.parent) ??
+      document.root;
+    return pasteSubtree(document, clipboard!, { parentId, offset: [160, 80, 0] });
+  },
+});
+sample({
+  clock: pasted,
+  fn: ({ document }) => document,
+  target: commitDocument,
+});
+sample({
+  clock: pasted,
+  fn: ({ id }) => id,
+  target: selectId,
+});
+
+sample({
+  clock: cutSelected,
+  target: copySelected,
+});
+sample({
+  clock: cutSelected,
+  target: deleteSelected,
 });
 
 export const nudgeSelected = createEvent<{ dx: number; dy: number; dz: number }>();

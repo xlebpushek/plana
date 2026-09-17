@@ -126,6 +126,116 @@ export function updateObject(
   };
 }
 
+export function extractSubtree(
+  document: PlanaDocument,
+  id: ObjectId,
+): { rootId: ObjectId; objects: Record<ObjectId, PlanaObject> } {
+  const objects: Record<ObjectId, PlanaObject> = {};
+  const walk = (oid: ObjectId) => {
+    const object = requireObject(document, oid);
+    objects[oid] = structuredClone(object);
+    for (const childId of object.children ?? []) walk(childId);
+  };
+  walk(id);
+  return { rootId: id, objects };
+}
+
+export function pasteSubtree(
+  document: PlanaDocument,
+  clip: { rootId: ObjectId; objects: Record<ObjectId, PlanaObject> },
+  options?: { parentId?: ObjectId; offset?: [number, number, number] },
+): { document: PlanaDocument; id: ObjectId } {
+  const source = clip.objects[clip.rootId];
+  if (!source) throw new Error("Clipboard is empty");
+  const parentId = options?.parentId ?? source.parent ?? document.root;
+  const parent = requireObject(document, parentId);
+  if (!isGroup(parent)) throw new Error(`Parent "${parentId}" is not a group`);
+
+  const idMap = new Map<ObjectId, ObjectId>();
+  const collect = (oid: ObjectId) => {
+    const object = clip.objects[oid];
+    const prefix = oid.replace(/_[a-z0-9]+$/i, "") || "obj";
+    idMap.set(oid, createId(prefix));
+    for (const childId of object.children ?? []) collect(childId);
+  };
+  collect(clip.rootId);
+
+  const objects: Record<ObjectId, PlanaObject> = { ...document.objects };
+  for (const [oldId, newId] of idMap) {
+    const object = clip.objects[oldId];
+    const isRootClone = oldId === clip.rootId;
+    const position = [...object.transform.position] as [number, number, number];
+    if (isRootClone && options?.offset) {
+      position[0] += options.offset[0];
+      position[1] += options.offset[1];
+      position[2] += options.offset[2];
+    }
+    objects[newId] = {
+      ...structuredClone(object),
+      id: newId,
+      parent: isRootClone ? parentId : idMap.get(object.parent ?? parentId) ?? parentId,
+      children: (object.children ?? []).map((childId) => idMap.get(childId)!),
+      transform: { ...structuredClone(object.transform), position },
+    };
+  }
+
+  const nextParent = objects[parentId] as Group;
+  objects[parentId] = {
+    ...nextParent,
+    children: [...nextParent.children, idMap.get(clip.rootId)!],
+  };
+
+  return { document: { ...document, objects }, id: idMap.get(clip.rootId)! };
+}
+
+export function cloneObjectTree(
+  document: PlanaDocument,
+  id: ObjectId,
+  options?: { parentId?: ObjectId; offset?: [number, number, number] },
+): { document: PlanaDocument; id: ObjectId } {
+  if (id === document.root) throw new Error("Cannot clone root");
+  const source = requireObject(document, id);
+  const parentId = options?.parentId ?? source.parent ?? document.root;
+  const parent = requireObject(document, parentId);
+  if (!isGroup(parent)) throw new Error(`Parent "${parentId}" is not a group`);
+
+  const idMap = new Map<ObjectId, ObjectId>();
+  const collect = (oid: ObjectId) => {
+    const object = requireObject(document, oid);
+    const prefix = oid.replace(/_[a-z0-9]+$/i, "") || "obj";
+    idMap.set(oid, createId(prefix));
+    for (const childId of object.children ?? []) collect(childId);
+  };
+  collect(id);
+
+  const objects: Record<ObjectId, PlanaObject> = { ...document.objects };
+  for (const [oldId, newId] of idMap) {
+    const object = document.objects[oldId];
+    const isRootClone = oldId === id;
+    const position = [...object.transform.position] as [number, number, number];
+    if (isRootClone && options?.offset) {
+      position[0] += options.offset[0];
+      position[1] += options.offset[1];
+      position[2] += options.offset[2];
+    }
+    objects[newId] = {
+      ...structuredClone(object),
+      id: newId,
+      parent: isRootClone ? parentId : idMap.get(object.parent ?? parentId) ?? parentId,
+      children: (object.children ?? []).map((childId) => idMap.get(childId)!),
+      transform: { ...structuredClone(object.transform), position },
+    };
+  }
+
+  const nextParent = objects[parentId] as Group;
+  objects[parentId] = {
+    ...nextParent,
+    children: [...nextParent.children, idMap.get(id)!],
+  };
+
+  return { document: { ...document, objects }, id: idMap.get(id)! };
+}
+
 export function createWallObject(options?: {
   id?: string;
   name?: string;

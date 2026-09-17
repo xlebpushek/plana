@@ -29,8 +29,34 @@ export function ViewHint() {
   if (!settings.canvas.showHint) return null;
   return (
     <div className="plana-hint">
-      <span className="plana-hint-desktop">Orbit · pan · zoom · click</span>
+      <span className="plana-hint-desktop">Orbit · pan · zoom · right-click</span>
       <span className="plana-hint-mobile">1 finger orbit · pinch zoom · tap select</span>
+    </div>
+  );
+}
+
+export function ZoomHud({
+  percent,
+  onIn,
+  onOut,
+  onFit,
+}: {
+  percent: number;
+  onIn: () => void;
+  onOut: () => void;
+  onFit: () => void;
+}) {
+  return (
+    <div className="plana-zoom">
+      <button type="button" title="Zoom out" aria-label="Zoom out" onClick={onOut}>
+        −
+      </button>
+      <button type="button" title="Fit to view" aria-label="Fit to view" onClick={onFit}>
+        {percent}%
+      </button>
+      <button type="button" title="Zoom in" aria-label="Zoom in" onClick={onIn}>
+        +
+      </button>
     </div>
   );
 }

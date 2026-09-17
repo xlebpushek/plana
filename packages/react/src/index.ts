@@ -9,3 +9,4 @@ export { Hierarchy } from "./editor/Hierarchy";
 export { Inspector } from "./editor/Inspector";
 export { HistoryButtons, ImportExportButtons, CreateObjectButton } from "./editor/controls";
 export { SettingsButton } from "./editor/Settings";
+export { ContextMenu } from "./editor/ContextMenu";

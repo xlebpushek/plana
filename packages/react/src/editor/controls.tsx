@@ -5,11 +5,13 @@ import { useUnit } from "effector-react";
 import {
   Box as BoxIcon,
   BrickWall,
+  Copy,
   Cylinder as CylinderIcon,
   Download,
   Folder,
   Plus,
   Redo2,
+  SquareStack,
   Trash2,
   Undo2,
   Upload,
@@ -23,7 +25,9 @@ import {
   $document,
   $selectedId,
   addPrimitive,
+  copySelected,
   deleteSelected,
+  duplicateSelected,
   importJson,
   redo,
   undo,
@@ -41,6 +45,8 @@ export function HistoryButtons() {
   const runUndo = useUnit(undo);
   const runRedo = useUnit(redo);
   const runDelete = useUnit(deleteSelected);
+  const runDuplicate = useUnit(duplicateSelected);
+  const runCopy = useUnit(copySelected);
 
   return (
     <>
@@ -63,6 +69,26 @@ export function HistoryButtons() {
         onClick={() => runRedo()}
       >
         <Redo2 size={17} strokeWidth={1.8} />
+      </button>
+      <button
+        type="button"
+        className="plana-icon-btn"
+        disabled={!selectedId || selectedId === document.root}
+        title="Duplicate (Ctrl+D)"
+        aria-label="Duplicate"
+        onClick={() => runDuplicate()}
+      >
+        <SquareStack size={17} strokeWidth={1.8} />
+      </button>
+      <button
+        type="button"
+        className="plana-icon-btn"
+        disabled={!selectedId || selectedId === document.root}
+        title="Copy (Ctrl+C)"
+        aria-label="Copy"
+        onClick={() => runCopy()}
+      >
+        <Copy size={17} strokeWidth={1.8} />
       </button>
       <button
         type="button"

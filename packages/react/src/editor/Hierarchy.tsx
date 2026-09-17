@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 
 import type { ObjectId, PlanaObject } from "@plana/core";
 
+import { ContextMenu, type ContextMenuState } from "./ContextMenu";
 import { $document, $selectedId, $selectedIds, selectId } from "../model/scene";
 import { useEditor } from "./context";
 import { useViewerScope } from "../viewer/ViewerProvider";
@@ -36,6 +37,7 @@ export function Hierarchy({ className }: { className?: string }) {
   const select = useUnit(selectId);
   const treeRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState<ReadonlySet<ObjectId>>(() => initialCollapsed(document));
+  const [menu, setMenu] = useState<ContextMenuState>(null);
 
   const rows = useMemo(() => {
     const list: Array<{ object: PlanaObject; depth: number; childCount: number }> = [];
@@ -126,6 +128,11 @@ export function Hierarchy({ className }: { className?: string }) {
                   .filter(Boolean)
                   .join(" ")}
                 onClick={() => select(object.id)}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  select(object.id);
+                  setMenu({ x: event.clientX, y: event.clientY });
+                }}
               >
                 <span className="plana-tree-name">{objectName(object)}</span>
                 <span className="plana-type">{object.type}</span>
@@ -135,6 +142,7 @@ export function Hierarchy({ className }: { className?: string }) {
           );
         })}
       </div>
+      <ContextMenu menu={menu} onClose={() => setMenu(null)} />
     </aside>
   );
 }

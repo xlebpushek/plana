@@ -174,7 +174,9 @@ export class PlanaRenderer {
   private axesHelper: THREE.AxesHelper;
   private view: ProjectSettings = defaultSettings();
   private framed = false;
+  private framedDistance = 12;
   private identity = new THREE.Matrix4();
+  private onViewChange?: () => void;
 
   constructor(canvas: HTMLCanvasElement) {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
@@ -186,6 +188,7 @@ export class PlanaRenderer {
       antialias: true,
       alpha: false,
       powerPreference: "high-performance",
+      logarithmicDepthBuffer: true,
     });
     this.webgl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.webgl.setClearColor("#09090b", 1);
@@ -215,6 +218,7 @@ export class PlanaRenderer {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.maxPolarAngle = Math.PI * 0.495;
+    this.controls.addEventListener("change", () => this.onViewChange?.());
 
     this.raycaster.params.Line = { threshold: 0.02 };
 
@@ -225,6 +229,57 @@ export class PlanaRenderer {
 
   setSelectHandler(handler?: (id?: ObjectId) => void) {
     this.onSelect = handler;
+  }
+
+  setViewChangeHandler(handler?: () => void) {
+    this.onViewChange = handler;
+  }
+
+  getZoomPercent() {
+    const dist = this.camera.position.distanceTo(this.controls.target);
+    if (dist < 1e-4) return 100;
+    return Math.round((this.framedDistance / dist) * 100);
+  }
+
+  zoomBy(factor: number) {
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const next = Math.min(80, Math.max(1.2, offset.length() * factor));
+    this.camera.position.copy(this.controls.target).add(offset.setLength(next));
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
+    this.onViewChange?.();
+  }
+
+  pickObjectAt(clientX: number, clientY: number): ObjectId | undefined {
+    if (!this.document) return undefined;
+    const rect = this.webgl.domElement.getBoundingClientRect();
+    this.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const pick: THREE.Object3D[] = [];
+    for (const runtime of this.runtimes.values()) {
+      if (runtime.face) pick.push(runtime.face);
+    }
+    for (const batch of this.batches.values()) pick.push(batch.mesh);
+    const hits = this.raycaster.intersectObjects(pick, false);
+    if (!hits.length) return undefined;
+    const idOf = (hit: THREE.Intersection): ObjectId | undefined => {
+      const direct = hit.object.userData.planaId as ObjectId | undefined;
+      if (direct) return direct;
+      const key = hit.object.userData.planaBatch as string | undefined;
+      if (key == null || hit.instanceId == null) return undefined;
+      return this.batches.get(key)?.ids[hit.instanceId];
+    };
+    const typeOf = (hit: THREE.Intersection) =>
+      this.document?.objects[String(idOf(hit) ?? "")]?.type ?? "";
+    const nonFloor = hits.filter((h) => typeOf(h) !== "floor");
+    const pool = nonFloor.length > 0 ? nonFloor : hits;
+    pool.sort((a, b) => {
+      const distDelta = a.distance - b.distance;
+      if (Math.abs(distDelta) > 0.08) return distDelta;
+      return hitPriority(typeOf(a)) - hitPriority(typeOf(b));
+    });
+    return idOf(pool[0]);
   }
 
   setSettings(settings: ProjectSettings) {
@@ -317,8 +372,10 @@ export class PlanaRenderer {
 
     this.controls.target.copy(target);
     this.camera.position.copy(target).add(offset.setLength(distance));
+    this.framedDistance = distance;
     this.camera.updateProjectionMatrix();
     this.controls.update();
+    this.onViewChange?.();
   }
 
   resize(width: number, height: number) {
@@ -386,14 +443,20 @@ export class PlanaRenderer {
       ghost
         ? new THREE.MeshBasicMaterial({
             transparent: true,
-            depthWrite: false,
+            depthWrite: true,
             depthTest: true,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
             side: THREE.DoubleSide,
           })
         : new THREE.MeshLambertMaterial({
             transparent: true,
-            depthWrite: false,
+            depthWrite: true,
             depthTest: true,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
             side: THREE.DoubleSide,
           }),
     );
@@ -412,7 +475,14 @@ export class PlanaRenderer {
       edgeGeo.setAttribute("position", new THREE.BufferAttribute(edges, 3));
       const edge = new THREE.LineSegments(
         edgeGeo,
-        new THREE.LineBasicMaterial({ transparent: true, depthTest: true }),
+        new THREE.LineBasicMaterial({
+          transparent: true,
+          depthTest: true,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -8,
+          polygonOffsetUnits: -8,
+        }),
       );
       edge.userData.planaId = object.id;
       edge.raycast = () => undefined;
@@ -464,7 +534,10 @@ export class PlanaRenderer {
       const opaque = opacity >= 0.95;
       mat.opacity = selected && opacity > 0 && !opaque ? Math.min(1, opacity + 0.08) : opacity;
       mat.transparent = !opaque;
-      mat.depthWrite = opaque;
+      mat.depthWrite = true;
+      mat.polygonOffset = true;
+      mat.polygonOffsetFactor = 1;
+      mat.polygonOffsetUnits = 1;
       mat.colorWrite = opacity > 0.001 || object.type === "wall";
       if (object.type === "wall" && opacity < 0.001) mat.opacity = 0.001;
       runtime.face.visible = true;
@@ -549,16 +622,22 @@ export class PlanaRenderer {
               color: 0xffffff,
               transparent: true,
               opacity: bucket.opacity,
-              depthWrite: false,
+              depthWrite: true,
               depthTest: true,
+              polygonOffset: true,
+              polygonOffsetFactor: 1,
+              polygonOffsetUnits: 1,
               side: THREE.DoubleSide,
             })
           : new THREE.MeshLambertMaterial({
               color: 0xffffff,
               transparent: !bucket.opaque,
               opacity: bucket.opaque ? 1 : bucket.opacity,
-              depthWrite: bucket.opaque,
+              depthWrite: true,
               depthTest: true,
+              polygonOffset: true,
+              polygonOffsetFactor: 1,
+              polygonOffsetUnits: 1,
               side: THREE.DoubleSide,
             });
         const mesh = new THREE.InstancedMesh(geo, mat, total);
@@ -572,6 +651,12 @@ export class PlanaRenderer {
         this.root.add(mesh);
         batch = { key, proto: bucket.proto, mesh, ids: [] };
         this.batches.set(key, batch);
+      } else {
+        const mat = batch.mesh.material as THREE.MeshBasicMaterial | THREE.MeshLambertMaterial;
+        mat.depthWrite = true;
+        mat.polygonOffset = true;
+        mat.polygonOffsetFactor = 1;
+        mat.polygonOffsetUnits = 1;
       }
 
       const ids: ObjectId[] = new Array(total);
@@ -748,6 +833,10 @@ export class PlanaRenderer {
       transparent: true,
       opacity: 0.55,
       depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -4,
+      polygonOffsetUnits: -4,
     });
     const lines = new THREE.LineSegments(geo, mat);
     lines.raycast = () => undefined;
@@ -772,6 +861,10 @@ export class PlanaRenderer {
       transparent: true,
       opacity: 0.92,
       depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -8,
+      polygonOffsetUnits: -8,
     });
     const lines = new THREE.LineSegments(geo, mat);
     lines.raycast = () => undefined;
@@ -816,46 +909,7 @@ export class PlanaRenderer {
     const dy = event.clientY - this.pointerDown.y;
     this.pointerDown = null;
     if (dx * dx + dy * dy > 25) return;
-    if (!this.document) return;
-
-    const rect = this.webgl.domElement.getBoundingClientRect();
-    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    this.raycaster.setFromCamera(this.pointer, this.camera);
-
-    const pick: THREE.Object3D[] = [];
-    for (const runtime of this.runtimes.values()) {
-      if (runtime.face) pick.push(runtime.face);
-    }
-    for (const batch of this.batches.values()) pick.push(batch.mesh);
-
-    const hits = this.raycaster.intersectObjects(pick, false);
-    if (!hits.length) {
-      this.onSelect(undefined);
-      return;
-    }
-
-    const idOf = (hit: THREE.Intersection): ObjectId | undefined => {
-      const direct = hit.object.userData.planaId as ObjectId | undefined;
-      if (direct) return direct;
-      const key = hit.object.userData.planaBatch as string | undefined;
-      if (key == null || hit.instanceId == null) return undefined;
-      return this.batches.get(key)?.ids[hit.instanceId];
-    };
-
-    const typeOf = (hit: THREE.Intersection) =>
-      this.document?.objects[String(idOf(hit) ?? "")]?.type ?? "";
-
-    const nonFloor = hits.filter((h) => typeOf(h) !== "floor");
-    const pool = nonFloor.length > 0 ? nonFloor : hits;
-
-    pool.sort((a, b) => {
-      const distDelta = a.distance - b.distance;
-      if (Math.abs(distDelta) > 0.08) return distDelta;
-      return hitPriority(typeOf(a)) - hitPriority(typeOf(b));
-    });
-
-    this.onSelect(idOf(pool[0]));
+    this.onSelect(this.pickObjectAt(event.clientX, event.clientY));
   };
 
   private rebuildRoomCorners(document: PlanaDocument) {
@@ -879,6 +933,10 @@ export class PlanaRenderer {
       transparent: true,
       opacity: 0.95,
       depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -8,
+      polygonOffsetUnits: -8,
     });
     const lines = new THREE.LineSegments(geo, mat);
     lines.raycast = () => undefined;

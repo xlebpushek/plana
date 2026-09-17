@@ -33,7 +33,20 @@ export type HatchRule = {
   pattern: HatchPattern;
 };
 
-export type ShortcutAction = "undo" | "redo" | "delete" | "frame" | "settings" | "grid" | "hatch";
+export type ShortcutAction =
+  | "undo"
+  | "redo"
+  | "delete"
+  | "frame"
+  | "settings"
+  | "grid"
+  | "hatch"
+  | "duplicate"
+  | "copy"
+  | "paste"
+  | "cut"
+  | "zoomIn"
+  | "zoomOut";
 
 export type ProjectSettings = {
   appearance: {
@@ -66,8 +79,14 @@ export type ProjectSettings = {
 export const SHORTCUT_META: { id: ShortcutAction; label: string; group: string }[] = [
   { id: "undo", label: "Undo", group: "Edit" },
   { id: "redo", label: "Redo", group: "Edit" },
+  { id: "cut", label: "Cut", group: "Edit" },
+  { id: "copy", label: "Copy", group: "Edit" },
+  { id: "paste", label: "Paste", group: "Edit" },
+  { id: "duplicate", label: "Duplicate", group: "Edit" },
   { id: "delete", label: "Delete", group: "Edit" },
   { id: "frame", label: "Frame plan", group: "View" },
+  { id: "zoomIn", label: "Zoom in", group: "View" },
+  { id: "zoomOut", label: "Zoom out", group: "View" },
   { id: "grid", label: "Toggle grid", group: "View" },
   { id: "hatch", label: "Toggle world hatch", group: "View" },
   { id: "settings", label: "Open settings", group: "Window" },
@@ -119,6 +138,12 @@ export function defaultSettings(): ProjectSettings {
       settings: "mod+,",
       grid: "mod+'",
       hatch: "mod+h",
+      duplicate: "mod+d",
+      copy: "mod+c",
+      paste: "mod+v",
+      cut: "mod+x",
+      zoomIn: "mod+=",
+      zoomOut: "mod+-",
     },
   };
 }
@@ -206,6 +231,8 @@ export function eventMatchesShortcut(event: KeyboardEvent, binding: string) {
   if (key === "delete") return event.key === "Delete" || event.key === "Backspace";
   if (key === "comma" || key === ",") return event.key === ",";
   if (key === "'" || key === "quote") return event.key === "'";
+  if (key === "=" || key === "equal") return event.key === "=" || event.key === "+";
+  if (key === "-") return event.key === "-" || event.key === "_";
   return pressed === key || event.code.toLowerCase() === `key${key}`;
 }
 
